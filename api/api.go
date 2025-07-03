@@ -106,7 +106,7 @@ func RunServer(ctx context.Context) error {
 	// Connection to database
 	dbConn, err := db.NewPgxPool(cfg.db.dsn)
 	if err != nil {
-		app.errorLog.Fatal(err)
+		app.errorLog.Println(err)
 		return err
 	}
 	defer dbConn.Close()

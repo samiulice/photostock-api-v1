@@ -224,6 +224,68 @@ func (app *application) GetAllUsers(w http.ResponseWriter, r *http.Request) {
 // .......................APP USER SESSION MANAGEMENT.......................
 // SignIn authenticates the user and generates a JWT token for them.
 // This function is used for the new authentication system using JWT.
+
+func (app *application) SignUp(w http.ResponseWriter, r *http.Request) {
+	var user models.User
+	err := app.readJSON(w, r, &user)
+	if err != nil {
+		app.badRequest(w, fmt.Errorf("ERROR:unable to read json %w", err))
+		return
+	}
+	//sanitize user input
+	user.Username = strings.Split(user.Email, "@")[0] + app.GenerateRandomAlphanumericCode(4)
+	user.Name = strings.TrimSpace(user.Name)
+	user.Email = strings.TrimSpace(user.Email)
+	user.Status = true
+	user.Role = "user"
+	user.Password = strings.TrimSpace(user.Password)
+	//hash password
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
+	if err != nil {
+		app.badRequest(w, fmt.Errorf("ERROR:unable to hash password %w", err))
+		return
+	}
+	user.Password = string(hashedPassword)
+
+	err = app.DB.UserRepo.Create(r.Context(), &user)
+	if err == sql.ErrNoRows {
+		app.errorLog.Println("ERROR: AddUser => username already exists:", err)
+		app.badRequest(w, errors.New("username already exists"))
+		return
+	} else if err != nil {
+		app.errorLog.Println("ERROR: AddUser => Unable to create user:", err)
+		app.badRequest(w, errors.New("Internal Server Error: Unable to create user"))
+		return
+	}
+
+	//after adding user successfully, go to the login process
+	//Generate signed token
+	token, err := generateSignedToken(&user)
+	if err != nil{
+		app.errorLog.Printf("ERROR: Unable to generate token for user: ", user.Username)
+		app.badRequest(w, errors.New("Internal server error"))
+		return
+	}
+	// Remove sensitive data before sending response
+	user.Password = ""
+
+	// Prepare and send response
+	response := struct {
+		Error   bool         `json:"error"`
+		Message string       `json:"message"`
+		Token   string       `json:"token"`
+		User    *models.User `json:"user"`
+	}{
+		Error:   false,
+		Message: "Signup successfully and autoSign in",
+		Token:   token,
+		User:    &user,
+	}
+
+	app.infoLog.Printf("User %s signed in successfully", user.Username)
+	app.writeJSON(w, http.StatusOK, response)
+}
+
 func (app *application) SignIn(w http.ResponseWriter, r *http.Request) {
 	var user models.User
 
@@ -260,26 +322,13 @@ func (app *application) SignIn(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Create JWT claims
-	claims := jwt.MapClaims{
-		"id":       validUser.ID,
-		"name":     validUser.Name,
-		"username": validUser.Username,
-		"role":     validUser.Role,
-		"iss":      app.config.jwt.issuer,
-		"aud":      app.config.jwt.audience,
-		"exp":      time.Now().Add(app.config.jwt.expiry).Unix(),
-		"iat":      time.Now().Unix(),
-	}
-
-	// Sign the token with the secret key
-	tokenString, err := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString([]byte(app.config.jwt.secretKey))
-	if err != nil {
-		app.errorLog.Println("ERROR: Token generation failed -", err)
-		app.badRequest(w, errors.New("Failed to generate token"))
+	//Generate signed token
+	token, err := generateSignedToken(validUser)
+	if err != nil{
+		app.errorLog.Printf("ERROR: Unable to generate token for user: ", user.Username)
+		app.badRequest(w, errors.New("Internal server error"))
 		return
 	}
-
 	// Remove sensitive data before sending response
 	validUser.Password = ""
 
@@ -292,10 +341,30 @@ func (app *application) SignIn(w http.ResponseWriter, r *http.Request) {
 	}{
 		Error:   false,
 		Message: "Sign in successful",
-		Token:   tokenString,
+		Token:   token,
 		User:    validUser,
 	}
 
 	app.infoLog.Printf("User %s signed in successfully", user.Username)
 	app.writeJSON(w, http.StatusOK, response)
+}
+
+
+func generateSignedToken(user *models.User)(string, error){
+	// Create JWT claims
+	claims := jwt.MapClaims{
+		"id":       user.ID,
+		"name":     user.Name,
+		"username": user.Username,
+		"email": user.Email,
+		"role":     user.Role,
+		"iss":      app.config.jwt.issuer,
+		"aud":      app.config.jwt.audience,
+		"exp":      time.Now().Add(app.config.jwt.expiry).Unix(),
+		"iat":      time.Now().Unix(),
+	}
+
+	// Sign the token with the secret key
+	tokenString, err := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString([]byte(app.config.jwt.secretKey))
+	return tokenString, err
 }

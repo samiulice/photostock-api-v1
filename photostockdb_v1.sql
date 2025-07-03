@@ -36,7 +36,7 @@ CREATE TABLE users (
     avatar_url TEXT DEFAULT '',
     status BOOLEAN DEFAULT TRUE,
     role VARCHAR(50) DEFAULT 'user',
-    email VARCHAR(100) DEFAULT '',
+    email VARCHAR(100) UNIQUE NOT NULL DEFAULT '',
     mobile VARCHAR(100) DEFAULT '',
     total_earnings NUMERIC(20,2) default 0,
     total_withdraw NUMERIC(20,2) default 0,
