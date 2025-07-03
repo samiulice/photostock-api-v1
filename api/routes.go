@@ -30,7 +30,7 @@ func (app *application) routes() http.Handler {
 
 	//login routes
 	mux.Post("/api/v1/auth/signin", app.SignIn)
-	mux.Post("/api/v1/user", app.AddUser)
+	mux.Post("/api/v1/auth/signup", app.SignUp)
 	//Secure routes
 	mux.Route("/api/v1", func(mux chi.Router) {
 		mux.Use(app.AuthUser)

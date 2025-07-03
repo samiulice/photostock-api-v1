@@ -57,22 +57,23 @@ type MediaCategory struct {
 }
 
 type User struct {
-	ID             int       `json:"id"`
-	Username       string    `json:"username"`
-	Password       string    `json:"password,omitempty"`
-	Name           string    `json:"name"`
-	AvatarURL      string    `json:"avatar_url"`
-	Status         bool      `json:"status"`
-	Role           string    `json:"role"`
-	Email          string    `json:"email"`
-	Mobile         string    `json:"mobile"`
-	TotalEarnings  float64   `json:"total_earnings"`
-	TotalWithdraw  float64   `json:"total_withdraw"`
-	Address        string    `json:"address"`
-	SubscriptionID *int      `json:"subscription_id"` // nullable FK
-	TotalExpenses  float64   `json:"total_expenses"`
-	CreatedAt      time.Time `json:"created_at"`
-	UpdatedAt      time.Time `json:"updated_at"`
+	ID               int               `json:"id"`
+	Username         string            `json:"username"`
+	Password         string            `json:"password,omitempty"`
+	Name             string            `json:"name"`
+	AvatarURL        string            `json:"avatar_url"`
+	Status           bool              `json:"status"`
+	Role             string            `json:"role"`
+	Email            string            `json:"email"`
+	Mobile           string            `json:"mobile"`
+	TotalEarnings    float64           `json:"total_earnings"`
+	TotalWithdraw    float64           `json:"total_withdraw"`
+	TotalExpenses    float64           `json:"total_expenses"`
+	Address          string            `json:"address"`
+	SubscriptionID   *int              `json:"subscription_id"` // nullable FK
+	CreatedAt        time.Time         `json:"created_at"`
+	UpdatedAt        time.Time         `json:"updated_at"`
+	SubscriptionPlan *SubscriptionPlan `json:"subscription_plan"`
 }
 
 type Subscription struct {

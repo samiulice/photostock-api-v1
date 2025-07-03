@@ -152,7 +152,7 @@ func (app *application) UpdateUser(w http.ResponseWriter, r *http.Request) {
 	}
 	fmt.Println("Received User data: ", user)
 	//sanitize user input
-	user.Username = strings.TrimSpace(user.Username)
+	user.Username = strings.Split(user.Email, "@")[0] + "_" + app.GenerateRandomAlphanumericCode(4)
 	user.Name = strings.TrimSpace(user.Name)
 	user.Password = strings.TrimSpace(user.Password)
 	//hash password
@@ -229,40 +229,43 @@ func (app *application) SignUp(w http.ResponseWriter, r *http.Request) {
 	var user models.User
 	err := app.readJSON(w, r, &user)
 	if err != nil {
-		app.badRequest(w, fmt.Errorf("ERROR:unable to read json %w", err))
+		app.badRequest(w, fmt.Errorf("ERROR: SignUp => unable to read json %w", err))
 		return
 	}
 	//sanitize user input
-	user.Username = strings.Split(user.Email, "@")[0] + app.GenerateRandomAlphanumericCode(4)
-	user.Name = strings.TrimSpace(user.Name)
 	user.Email = strings.TrimSpace(user.Email)
+	user.Username = strings.Split(user.Email, "@")[0] + "_" + app.GenerateRandomAlphanumericCode(4)
+	user.Name = strings.TrimSpace(user.Name)
 	user.Status = true
 	user.Role = "user"
 	user.Password = strings.TrimSpace(user.Password)
 	//hash password
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
 	if err != nil {
-		app.badRequest(w, fmt.Errorf("ERROR:unable to hash password %w", err))
+		app.errorLog.Println("ERROR: SignUp => unable to hash password:", err)
+		app.badRequest(w, fmt.Errorf("Internal Server Error: unable to hash password %w", err))
 		return
 	}
 	user.Password = string(hashedPassword)
 
 	err = app.DB.UserRepo.Create(r.Context(), &user)
 	if err == sql.ErrNoRows {
-		app.errorLog.Println("ERROR: AddUser => username already exists:", err)
+		app.errorLog.Println("ERROR: SignUp => username already exists:", err)
 		app.badRequest(w, errors.New("username already exists"))
 		return
 	} else if err != nil {
-		app.errorLog.Println("ERROR: AddUser => Unable to create user:", err)
+		app.errorLog.Println("ERROR: SignUp => unable to create user:", err)
 		app.badRequest(w, errors.New("Internal Server Error: Unable to create user"))
 		return
 	}
 
+	//senitze input
+	user.Password = ""
 	//after adding user successfully, go to the login process
 	//Generate signed token
 	token, err := generateSignedToken(&user)
-	if err != nil{
-		app.errorLog.Printf("ERROR: Unable to generate token for user: ", user.Username)
+	if err != nil {
+		app.errorLog.Println("ERROR: SignUp => Unable to generate token for user: ", user.Username)
 		app.badRequest(w, errors.New("Internal server error"))
 		return
 	}
@@ -277,12 +280,12 @@ func (app *application) SignUp(w http.ResponseWriter, r *http.Request) {
 		User    *models.User `json:"user"`
 	}{
 		Error:   false,
-		Message: "Signup successfully and autoSign in",
+		Message: "Registration successful. Auto sign-in complete.",
 		Token:   token,
 		User:    &user,
 	}
 
-	app.infoLog.Printf("User %s signed in successfully", user.Username)
+	app.infoLog.Println("Registration successful. Auto sign-in complete")
 	app.writeJSON(w, http.StatusOK, response)
 }
 
@@ -297,20 +300,20 @@ func (app *application) SignIn(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Lookup user by username
-	validUser, err := app.DB.UserRepo.GetByUsername(r.Context(), user.Username)
+	validUser, err := app.DB.UserRepo.GetByEmail(r.Context(), user.Email)
 	if err != nil {
 		app.errorLog.Println("ERROR: User lookup failed -", err)
 		if errors.Is(err, sql.ErrNoRows) {
 			app.badRequest(w, errors.New("Wrong username or password"))
 		} else {
-			app.badRequest(w, errors.New("Failed to retrieve user"))
+			app.badRequest(w, errors.New("Failed to retrieve user"+err.Error()))
 		}
 		return
 	}
 
 	// Check if user account is active
 	if !validUser.Status {
-		app.infoLog.Printf("SignIn denied for deactivated user: %s", user.Username)
+		app.infoLog.Printf("SignIn denied for deactivated user: %s", user.Email)
 		app.badRequest(w, errors.New("Account deactivated. Please contact support"))
 		return
 	}
@@ -324,8 +327,8 @@ func (app *application) SignIn(w http.ResponseWriter, r *http.Request) {
 
 	//Generate signed token
 	token, err := generateSignedToken(validUser)
-	if err != nil{
-		app.errorLog.Printf("ERROR: Unable to generate token for user: ", user.Username)
+	if err != nil {
+		app.errorLog.Println("ERROR: Unable to generate token for user: ", user.Username)
 		app.badRequest(w, errors.New("Internal server error"))
 		return
 	}
@@ -349,14 +352,13 @@ func (app *application) SignIn(w http.ResponseWriter, r *http.Request) {
 	app.writeJSON(w, http.StatusOK, response)
 }
 
-
-func generateSignedToken(user *models.User)(string, error){
+func generateSignedToken(user *models.User) (string, error) {
 	// Create JWT claims
 	claims := jwt.MapClaims{
 		"id":       user.ID,
 		"name":     user.Name,
 		"username": user.Username,
-		"email": user.Email,
+		"email":    user.Email,
 		"role":     user.Role,
 		"iss":      app.config.jwt.issuer,
 		"aud":      app.config.jwt.audience,
