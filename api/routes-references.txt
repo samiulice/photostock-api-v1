@@ -1,0 +1,92 @@
+package api
+
+import (
+	"github.com/go-chi/chi/v5"
+)
+
+func RegisterRoutes() *chi.Mux {
+	r := chi.NewRouter()
+
+	// Auth routes
+	r.Route("/auth", func(r chi.Router) {
+		r.Post("/register", handlers.Register)
+		r.Post("/login", handlers.Login)
+		r.Post("/logout", handlers.Logout)
+		r.Get("/profile", handlers.Profile)
+		r.Put("/profile", handlers.UpdateProfile)
+		r.Put("/password", handlers.ChangePassword)
+		r.Post("/forgot-password", handlers.ForgotPassword)
+		r.Post("/reset-password", handlers.ResetPassword)
+	})
+
+	// Media routes
+	r.Route("/media", func(r chi.Router) {
+		r.Get("/", handlers.ListMedia)
+		r.Post("/", handlers.UploadMedia)
+		r.Get("/{id}", handlers.GetMedia)
+		r.Put("/{id}", handlers.UpdateMedia)
+		r.Delete("/{id}", handlers.DeleteMedia)
+
+		r.Get("/user/{userId}", handlers.UserMedia)
+		r.Get("/category/{slug}", handlers.CategoryMedia)
+	})
+
+	// Search & filter
+	r.Get("/search", handlers.SearchMedia)
+	r.Get("/filter", handlers.FilterMedia)
+
+	// Categories
+	r.Route("/categories", func(r chi.Router) {
+		r.Get("/", handlers.GetCategories)
+		r.Post("/", handlers.CreateCategory)
+		r.Put("/{id}", handlers.UpdateCategory)
+		r.Delete("/{id}", handlers.DeleteCategory)
+	})
+
+	// Tags
+	r.Get("/tags", handlers.GetTags)
+	r.Post("/tags", handlers.CreateTag)
+
+	// Licensing & purchases
+	r.Get("/licenses", handlers.GetLicenses)
+	r.Post("/purchase/{mediaId}", handlers.PurchaseMedia)
+	r.Get("/purchases", handlers.ListPurchases)
+	r.Get("/purchases/{id}/download", handlers.DownloadPurchased)
+
+	// Favorites & collections
+	r.Route("/favorites", func(r chi.Router) {
+		r.Post("/{mediaId}", handlers.AddFavorite)
+		r.Delete("/{mediaId}", handlers.RemoveFavorite)
+		r.Get("/", handlers.GetFavorites)
+	})
+
+	r.Route("/collections", func(r chi.Router) {
+		r.Post("/", handlers.CreateCollection)
+		r.Get("/", handlers.GetCollections)
+		r.Get("/{id}", handlers.GetCollection)
+		r.Post("/{id}/media/{mediaId}", handlers.AddToCollection)
+		r.Delete("/{id}/media/{mediaId}", handlers.RemoveFromCollection)
+	})
+
+	// Comments
+	r.Route("/media/{id}/comments", func(r chi.Router) {
+		r.Get("/", handlers.GetComments)
+		r.Post("/", handlers.PostComment)
+	})
+	r.Delete("/comments/{id}", handlers.DeleteComment)
+
+	// Stats (optional)
+	r.Get("/media/{id}/stats", handlers.MediaStats)
+	r.Get("/user/uploads/stats", handlers.UploadStats)
+	r.Get("/user/sales/stats", handlers.SalesStats)
+
+	// Admin
+	r.Route("/admin", func(r chi.Router) {
+		r.Get("/users", handlers.AdminListUsers)
+		r.Put("/users/{id}", handlers.AdminUpdateUser)
+		r.Delete("/users/{id}", handlers.AdminDeleteUser)
+		r.Get("/reports", handlers.AdminReports)
+	})
+
+	return r
+}

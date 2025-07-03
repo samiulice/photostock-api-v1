@@ -20,7 +20,7 @@ const version = models.APPVersion //app version
 // config holds app configuration
 type config struct {
 	port int
-	env  string //production or development mode
+	env  string //mediaion or development mode
 	jwt  struct {
 		secretKey string        //JWT secret key for signing tokens
 		issuer    string        //Issuer of the JWT token
@@ -87,21 +87,20 @@ func RunServer(ctx context.Context) error {
 
 	// Getting command line arguments
 	flag.IntVar(&cfg.port, "port", 8080, "API Server port to listen on")
-	flag.StringVar(&cfg.env, "env", "development", "Application Environment{development|production}")
+	flag.StringVar(&cfg.env, "env", "development", "Application Environment{development|mediaion}")
 	flag.Parse()
 
 	infoLog := log.New(os.Stdout, "INFO\t", log.Ldate|log.Ltime)
 	errorLog := log.New(os.Stdout, "ERROR\t", log.Ldate|log.Ltime|log.Lshortfile)
 
 	//setup JWT configuration
-	cfg.jwt.secretKey = "PSI_Inventory_v2_2024_Secure_JWT_Key_!@#$%^&*()_+" // Replace with your actual secret key
-	cfg.jwt.issuer = "psi_inventory"
+	cfg.jwt.secretKey = "photostock_app_v2_2024_Secure_JWT_Key_!@#$%^&*()_+" // Replace with your actual secret key
+	cfg.jwt.issuer = "photostock_app_v2"
 	cfg.jwt.expiry = 24 * time.Hour      // Token expiry duration
 	cfg.jwt.refresh = 7 * 24 * time.Hour // Refresh token expiry duration
-	cfg.jwt.audience = "psi_inventory_users"
+	cfg.jwt.audience = "photostock_app_v2"
 	cfg.jwt.algorithm = "HS256" // JWT signing algorithm
 
-	// cfg.db.dsn = "postgresql://psi_db_v2_xpdw_user:QZxWHNawLaYUXJKQTMzlP2R7t9T8iMI5@dpg-d195rifdiees73ahuqt0-a/psi_db_v2_xpdw"
 	//for testing purpose
 	cfg.db.dsn = "postgresql://photostock_db_kms3_user:0YqzS7ziqQjLx2nyfU9WGPdYRo7qNkd9@dpg-d1drniumcj7s73be3hqg-a.oregon-postgres.render.com/photostock_db_v1"
 	// Connection to database

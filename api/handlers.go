@@ -17,6 +17,87 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+// .......................Media MANAGEMENT.......................
+
+// func (app *application) UploadMedia(w http.ResponseWriter, r *http.Request) {
+// 	var resp models.Response
+// 	// Limit request body size (optional)
+// 	r.Body = http.MaxBytesReader(w, r.Body, 10<<20) // 10 MB
+
+// 	// Parse multipart form
+// 	err := r.ParseMultipartForm(10 << 20) // 10 MB
+// 	if err != nil {
+// 		app.errorLog.Println("Unable to parse form")
+// 		resp.Error = true
+// 		resp.Message = "Internal Server Error"
+// 		app.writeJSON(w, http.StatusBadRequest, resp)
+// 		return
+// 	}
+
+// 	//get uploader info from the contaxt
+// 	user, ok := app.GetUserFromContext(r.Context())
+// 	if !ok {
+// 		app.writeJSON(w, http.StatusUnauthorized, nil)
+// 		return
+// 	}
+// 	// Read form fields
+// 	title := r.FormValue("title")
+// 	description := r.FormValue("description")
+// 	categoryID, err := strconv.Atoi(r.FormValue("category_id"))
+// 	if err != nil {
+// 		app.errorLog.Println("Inalid category id: Cannot convert to int")
+// 		resp.Error = true
+// 		resp.Message = "Invalid category id"
+// 		app.writeJSON(w, http.StatusUnprocessableEntity, resp)
+// 		return
+// 	}
+// 	mediaUUID := uuid.NewString()
+// 	mediaURL := filepath.Join("fileserver", "media", "images", user.Username, mediaUUID)
+
+// 	// Read image file
+// 	file, _, err := r.FormFile("image")
+// 	if err != nil {
+// 		http.Error(w, "Error retrieving image", http.StatusBadRequest)
+// 		return
+// 	}
+// 	defer file.Close()
+
+// 	// Save image to disk (or handle as needed)
+// 	dst, err := os.Create(mediaURL)
+// 	if err != nil {
+// 		http.Error(w, "Error saving file", http.StatusInternalServerError)
+// 		return
+// 	}
+// 	defer dst.Close()
+
+// 	_, err = io.Copy(dst, file)
+// 	if err != nil {
+// 		http.Error(w, "Error writing file", http.StatusInternalServerError)
+// 		return
+// 	}
+
+// 	//save media info to database
+// 	var media models.Media
+// 	media.MediaUUID = uuid.NewString()
+// 	media.MediaTitle = title
+// 	media.MediaURL = mediaURL
+// 	media.Description = description
+// 	media.CategoryID = &categoryID
+
+// 	//TODO: Save media info to database
+// 	media.Id, err = app.DB
+// 	if err != nil {
+// 		http.Error(w, "Error writing file", http.StatusInternalServerError)
+// 		return
+// 	}
+
+// 	// Respond
+// 	resp.Error = false
+// 	resp.Message = "Upload Successfull"
+// 	resp.Data = any(media)
+// 	app.writeJSON(w, http.StatusOK, resp)
+// }
+
 // .......................APP USER MANAGEMENT.......................
 // AddUser adds new user to the users registry
 func (app *application) AddUser(w http.ResponseWriter, r *http.Request) {
@@ -204,9 +285,9 @@ func (app *application) SignIn(w http.ResponseWriter, r *http.Request) {
 
 	// Prepare and send response
 	response := struct {
-		Error   bool        `json:"error"`
-		Message string      `json:"message"`
-		Token   string      `json:"token"`
+		Error   bool         `json:"error"`
+		Message string       `json:"message"`
+		Token   string       `json:"token"`
 		User    *models.User `json:"user"`
 	}{
 		Error:   false,

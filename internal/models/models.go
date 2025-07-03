@@ -5,14 +5,13 @@ import (
 )
 
 const (
-	APPName          = "PSInventory"
-	APPVersion       = "1.0"
-	DBHost           = "localhost"
-	DBPort           = "5432"
-	DBName           = "psi_db_v2_xpdw"
-	DBUser           = "psi_db_v2_xpdw_user"
-	DBPassword       = "QZxWHNawLaYUXJKQTMzlP2R7t9T8iMI5"
-	DBBackupLocation = "psi-db-backup"
+	APPName    = "Photostock"
+	APPVersion = "1.0"
+	DBHost     = "localhost"
+	DBPort     = "5432"
+	DBName     = ""
+	DBUser     = ""
+	DBPassword = "QZxWHNawLaYUXJKQTMzlP2R7t9T8iMI5"
 )
 
 var Passphrase = "jM/0qr%HKU&!G%MdivH#A-{oInY*Nv20"
@@ -22,6 +21,7 @@ type Response struct {
 	Error   bool   `json:"error"`
 	Status  string `json:"status"`
 	Message string `json:"message"`
+	Data    any    `json:"data"`
 }
 
 // User holds the user info
@@ -49,7 +49,7 @@ type SubscriptionPlan struct {
 	UpdatedAt     time.Time `json:"updated_at"`
 }
 
-type ProductCategory struct {
+type MediaCategory struct {
 	ID        int       `json:"id"`
 	Name      string    `json:"name"`
 	CreatedAt time.Time `json:"created_at"`
@@ -67,8 +67,10 @@ type User struct {
 	Email          string    `json:"email"`
 	Mobile         string    `json:"mobile"`
 	TotalEarnings  float64   `json:"total_earnings"`
+	TotalWithdraw  float64   `json:"total_withdraw"`
 	Address        string    `json:"address"`
 	SubscriptionID *int      `json:"subscription_id"` // nullable FK
+	TotalExpenses  float64   `json:"total_expenses"`
 	CreatedAt      time.Time `json:"created_at"`
 	UpdatedAt      time.Time `json:"updated_at"`
 }
@@ -76,7 +78,7 @@ type User struct {
 type Subscription struct {
 	ID                 int       `json:"id"`
 	UserID             int       `json:"user_id"`
-	SubscriptionTypeID int       `json:"subscription_type_id"`
+	SubscriptionPlanID int       `json:"subscription_plan_id"`
 	PaymentStatus      string    `json:"payment_status"`
 	PaymentAmount      float64   `json:"payment_amount"`
 	PaymentTime        time.Time `json:"payment_time"`
@@ -85,25 +87,31 @@ type Subscription struct {
 	UpdatedAt          time.Time `json:"updated_at"`
 }
 
-type Product struct {
-	ID            int       `json:"id"`
-	ProductID     string    `json:"product_id"`
-	ProductTitle  string    `json:"product_title"`
-	Description   string    `json:"description"`
-	ProductURL    string    `json:"product_url"`
-	CategoryID    *int      `json:"category_id"` // nullable FK
-	MRP           float64   `json:"mrp"`
-	MaxDiscount   float64   `json:"max_discount"`
-	TotalEarnings float64   `json:"total_earnings"`
-	CreatedAt     time.Time `json:"created_at"`
-	UpdatedAt     time.Time `json:"updated_at"`
+type Media struct {
+	ID            int           `json:"id"`
+	MediaUUID     string        `json:"media_uuid"`
+	MediaTitle    string        `json:"media_title"`
+	Description   string        `json:"description"`
+	CategoryID    *int          `json:"category_id"` // nullable FK
+	TotalEarnings float64       `json:"total_earnings"`
+	LicenseType   int           `json:"license_type"` //premium = 0, free = 1
+	MediaCategory MediaCategory `json:"media_category"`
+	CreatedAt     time.Time     `json:"created_at"`
+	UpdatedAt     time.Time     `json:"updated_at"`
 }
 
+type UploadHistory struct {
+	ID           int       `json:"id"`
+	MediaUUID    string    `json:"media_id"`
+	UserID       int       `json:"user_id"` //uploader
+	UploadededAt time.Time `json:"uploaded_at"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
+}
 type DownloadHistory struct {
 	ID           int       `json:"id"`
-	ProductID    string    `json:"product_id"`
-	UserID       int       `json:"user_id"`
-	Price        float64   `json:"price"`
+	MediaUUID    string    `json:"media_id"`
+	UserID       int       `json:"user_id"` //downloader
 	DownloadedAt time.Time `json:"downloaded_at"`
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`

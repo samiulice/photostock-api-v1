@@ -35,5 +35,17 @@ func (app *application) routes() http.Handler {
 	mux.Route("/api/v1", func(mux chi.Router) {
 		mux.Use(app.AuthUser)
 	})
+
+	// Media routes
+	mux.Route("/media", func(r chi.Router) {
+		// mux.Get("/", app.ListMedia)
+		// mux.Post("/", app.UploadMedia)
+		// mux.Get("/{id}", app.GetMedia)
+		// mux.Put("/{id}", app.UpdateMedia)
+		// mux.Delete("/{id}", app.DeleteMedia)
+
+		// mux.Get("/user/{userId}", app.UserMedia)
+		// mux.Get("/category/{slug}", app.CategoryMedia)
+	})
 	return mux
 }

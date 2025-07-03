@@ -7,21 +7,21 @@ import (
 // DBRepository contains all individual repositories
 type DBRepository struct {
 	SubscriptionTypeRepo *SubscriptionTypeRepo
-	ProductCategoryRepo  *ProductCategoryRepo
+	MediaCategoryRepo    *MediaCategoryRepo
 	UserRepo             *UserRepo
-	SubscriptionRepo     *SubscriptionRepo
-	ProductRepo          *ProductRepo
-	DownloadHistoryRepo  *DownloadHistoryRepo
+	// SubscriptionRepo     *SubscriptionRepo
+	// MediaRepo            *MediaRepo
+	// DownloadHistoryRepo  *DownloadHistoryRepo
 }
 
 // NewDBRepository initializes all repositories with a shared connection pool
 func NewDBRepository(db *pgxpool.Pool) *DBRepository {
 	return &DBRepository{
 		SubscriptionTypeRepo: NewSubscriptionPlanRepo(db),
-		ProductCategoryRepo:  NewProductCategoryRepo(db),
+		MediaCategoryRepo:    NewMediaCategoryRepo(db),
 		UserRepo:             NewUserRepo(db),
-		SubscriptionRepo:     NewSubscriptionRepo(db),
-		ProductRepo:          NewProductRepo(db),
-		DownloadHistoryRepo:  NewDownloadHistoryRepo(db),
+		// SubscriptionRepo:     NewSubscriptionRepo(db),
+		// MediaRepo:            NewMediaRepo(db),
+		// DownloadHistoryRepo:  NewDownloadHistoryRepo(db),
 	}
 }
