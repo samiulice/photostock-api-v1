@@ -40,6 +40,7 @@ CREATE TABLE users (
     mobile VARCHAR(100) DEFAULT '',
     total_earnings NUMERIC(20,2) default 0,
     total_withdraw NUMERIC(20,2) default 0,
+    total_expenses NUMERIC(20,2) default 0,
     address TEXT DEFAULT '',
     subscription_id INTEGER DEFAULT NULL,
     created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,

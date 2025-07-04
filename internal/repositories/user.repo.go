@@ -22,7 +22,7 @@ func (r *UserRepo) Create(ctx context.Context, user *models.User) error {
 	query := `
 		INSERT INTO users (
 			username, password, name, avatar_url, status, role, email, mobile, 
-			total_earnings, total_withdraw, total_expenses, total_withdraw, total_expenses, address, subscription_id, created_at, updated_at
+			total_earnings, total_withdraw, total_expenses, address, subscription_id, created_at, updated_at
 		) VALUES (
 			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15
 		) RETURNING id
