@@ -17,12 +17,12 @@ func NewMediaCategoryRepo(db *pgxpool.Pool) *MediaCategoryRepo {
 	return &MediaCategoryRepo{db: db}
 }
 
-func (r *MediaCategoryRepo) Create(ctx context.Context, pc *models.MediaCategory) error {
+func (r *MediaCategoryRepo) Create(ctx context.Context, c *models.MediaCategory) error {
 	query := `
-	INSERT INTO media_categories (name, created_at, updated_at)
-	VALUES ($1, $2, $3)
+	INSERT INTO media_categories (name)
+	VALUES ($1)
 	RETURNING id`
-	return r.db.QueryRow(ctx, query, pc.Name, time.Now(), time.Now()).Scan(&pc.ID)
+	return r.db.QueryRow(ctx, query, c.Name).Scan(&c.ID)
 }
 
 func (r *MediaCategoryRepo) GetByID(ctx context.Context, id int) (*models.MediaCategory, error) {
@@ -30,19 +30,19 @@ func (r *MediaCategoryRepo) GetByID(ctx context.Context, id int) (*models.MediaC
 	SELECT id, name, created_at, updated_at
 	FROM media_categories
 	WHERE id = $1`
-	pc := &models.MediaCategory{}
+	c := &models.MediaCategory{}
 	err := r.db.QueryRow(ctx, query, id).Scan(
-		&pc.ID, &pc.Name, &pc.CreatedAt, &pc.UpdatedAt,
+		&c.ID, &c.Name, &c.CreatedAt, &c.UpdatedAt,
 	)
-	return pc, err
+	return c, err
 }
 
-func (r *MediaCategoryRepo) Update(ctx context.Context, pc *models.MediaCategory) error {
+func (r *MediaCategoryRepo) Update(ctx context.Context, c *models.MediaCategory) error {
 	query := `
 	UPDATE media_categories
 	SET name = $2, updated_at = $3
 	WHERE id = $1`
-	_, err := r.db.Exec(ctx, query, pc.ID, pc.Name, time.Now())
+	_, err := r.db.Exec(ctx, query, c.ID, c.Name, time.Now())
 	return err
 }
 
@@ -52,7 +52,7 @@ func (r *MediaCategoryRepo) Delete(ctx context.Context, id int) error {
 	return err
 }
 
-func (r *MediaCategoryRepo) GetAll(ctx context.Context) ([]models.MediaCategory, error) {
+func (r *MediaCategoryRepo) GetAll(ctx context.Context) ([]*models.MediaCategory, error) {
 	query := `SELECT id, name, created_at, updated_at FROM media_categories`
 	rows, err := r.db.Query(ctx, query)
 	if err != nil {
@@ -60,15 +60,15 @@ func (r *MediaCategoryRepo) GetAll(ctx context.Context) ([]models.MediaCategory,
 	}
 	defer rows.Close()
 
-	var categories []models.MediaCategory
+	var categories []*models.MediaCategory
 	for rows.Next() {
-		var pc models.MediaCategory
+		var c models.MediaCategory
 		if err := rows.Scan(
-			&pc.ID, &pc.Name, &pc.CreatedAt, &pc.UpdatedAt,
+			&c.ID, &c.Name, &c.CreatedAt, &c.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}
-		categories = append(categories, pc)
+		categories = append(categories, &c)
 	}
 	return categories, nil
 }

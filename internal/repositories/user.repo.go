@@ -297,7 +297,7 @@ func (r *UserRepo) Update(ctx context.Context, user *models.User) error {
 	return err
 }
 
-func (r *UserRepo) Delete(ctx context.Context, id int) error {
+func (r *UserRepo) DeleteByID(ctx context.Context, id int) error {
 	query := `DELETE FROM users WHERE id = $1`
 	_, err := r.db.Exec(ctx, query, id)
 	return err

@@ -79,8 +79,8 @@ func (app *application) AuthUser(next http.Handler) http.Handler {
 
 			// Safely extract user fields from claims
 			tokenUser := &models.JWT{}
-			if idFloat, ok := claims["id"].(float64); ok {
-				tokenUser.ID = int(idFloat)
+			if id, ok := claims["id"].(int); ok {
+				tokenUser.ID = id
 			}
 			if name, ok := claims["name"].(string); ok {
 				tokenUser.Name = name
@@ -119,11 +119,11 @@ func (app *application) AuthUser(next http.Handler) http.Handler {
 	})
 }
 
-// GetUserFromContext retrieves the user claims from the request context
+// GetUserTokenFromContext retrieves the user claims from the request context
 // It returns the user struct and a boolean indicating if the user was found
 // If the user is not found, it logs an error and returns nil
 // This function is used in the AuthAdmin middleware to check if the user is an admin
-func (app *application) GetUserFromContext(ctx context.Context) (*models.JWT, bool) {
+func (app *application) GetUserTokenFromContext(ctx context.Context) (*models.JWT, bool) {
 	user, ok := ctx.Value(contextKey("user")).(*models.JWT)
 	if !ok || user == nil {
 		app.errorLog.Println("No user found in context")
@@ -138,7 +138,7 @@ func (app *application) GetUserFromContext(ctx context.Context) (*models.JWT, bo
 // If the user is an admin, it proceeds to the next handler
 func (app *application) AuthAdmin(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		token, ok := app.GetUserFromContext(r.Context())
+		token, ok := app.GetUserTokenFromContext(r.Context())
 		if !ok {
 			app.writeJSON(w, http.StatusUnauthorized, models.Response{
 				Error:   true,

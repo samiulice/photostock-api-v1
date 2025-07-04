@@ -7,85 +7,86 @@ import (
 func RegisterRoutes() *chi.Mux {
 	r := chi.NewRouter()
 
-	// Auth routes
+	// --- Authentication & User Management ---
 	r.Route("/auth", func(r chi.Router) {
-		r.Post("/register", handlers.Register)
-		r.Post("/login", handlers.Login)
-		r.Post("/logout", handlers.Logout)
-		r.Get("/profile", handlers.Profile)
-		r.Put("/profile", handlers.UpdateProfile)
-		r.Put("/password", handlers.ChangePassword)
-		r.Post("/forgot-password", handlers.ForgotPassword)
-		r.Post("/reset-password", handlers.ResetPassword)
+		r.Post("/register", handlers.Register)           // Register a new user
+		r.Post("/login", handlers.Login)                 // User login
+		r.Post("/logout", handlers.Logout)               // User logout
+		r.Get("/profile", handlers.Profile)              // Get currently logged-in user's profile
+		r.Put("/profile", handlers.UpdateProfile)        // Update user profile information
+		r.Put("/password", handlers.ChangePassword)      // Change password for logged-in user
+		r.Post("/forgot-password", handlers.ForgotPassword) // Request password reset via email
+		r.Post("/reset-password", handlers.ResetPassword)   // Reset password using token
 	})
 
-	// Media routes
+	// --- Media Management ---
 	r.Route("/media", func(r chi.Router) {
-		r.Get("/", handlers.ListMedia)
-		r.Post("/", handlers.UploadMedia)
-		r.Get("/{id}", handlers.GetMedia)
-		r.Put("/{id}", handlers.UpdateMedia)
-		r.Delete("/{id}", handlers.DeleteMedia)
+		r.Get("/", handlers.ListMedia)                         // List all media
+		r.Post("/", handlers.UploadMedia)                      // Upload new media
+		r.Get("/{id}", handlers.GetMedia)                      // Retrieve a single media item by ID
+		r.Put("/{id}", handlers.UpdateMedia)                   // Update an existing media item
+		r.Delete("/{id}", handlers.DeleteMedia)                // Delete a media item
 
-		r.Get("/user/{userId}", handlers.UserMedia)
-		r.Get("/category/{slug}", handlers.CategoryMedia)
+		r.Get("/user/{userId}", handlers.UserMedia)            // List all media uploaded by a specific user
+		r.Get("/category/{slug}", handlers.CategoryMedia)      // List media by category slug
 	})
 
-	// Search & filter
-	r.Get("/search", handlers.SearchMedia)
-	r.Get("/filter", handlers.FilterMedia)
+	// --- Search and Filter ---
+	r.Get("/search", handlers.SearchMedia)                    // Search media with query parameters
+	r.Get("/filter", handlers.FilterMedia)                    // Filter media based on criteria like tags, license, etc.
 
-	// Categories
+	// --- Categories Management ---
 	r.Route("/categories", func(r chi.Router) {
-		r.Get("/", handlers.GetCategories)
-		r.Post("/", handlers.CreateCategory)
-		r.Put("/{id}", handlers.UpdateCategory)
-		r.Delete("/{id}", handlers.DeleteCategory)
+		r.Get("/", handlers.GetCategories)                    // List all categories
+		r.Post("/", handlers.CreateCategory)                 // Create a new category
+		r.Put("/{id}", handlers.UpdateCategory)              // Update an existing category
+		r.Delete("/{id}", handlers.DeleteCategory)           // Delete a category
 	})
 
-	// Tags
-	r.Get("/tags", handlers.GetTags)
-	r.Post("/tags", handlers.CreateTag)
+	// --- Tag Management ---
+	r.Get("/tags", handlers.GetTags)                          // List all tags
+	r.Post("/tags", handlers.CreateTag)                       // Create a new tag
 
-	// Licensing & purchases
-	r.Get("/licenses", handlers.GetLicenses)
-	r.Post("/purchase/{mediaId}", handlers.PurchaseMedia)
-	r.Get("/purchases", handlers.ListPurchases)
-	r.Get("/purchases/{id}/download", handlers.DownloadPurchased)
+	// --- Licensing & Purchases ---
+	r.Get("/licenses", handlers.GetLicenses)                  // List all available licenses
+	r.Post("/purchase/{mediaId}", handlers.PurchaseMedia)     // Purchase a media item
+	r.Get("/purchases", handlers.ListPurchases)               // List all purchases made by the user
+	r.Get("/purchases/{id}/download", handlers.DownloadPurchased) // Download a purchased media item
 
-	// Favorites & collections
+	// --- Favorites ---
 	r.Route("/favorites", func(r chi.Router) {
-		r.Post("/{mediaId}", handlers.AddFavorite)
-		r.Delete("/{mediaId}", handlers.RemoveFavorite)
-		r.Get("/", handlers.GetFavorites)
+		r.Post("/{mediaId}", handlers.AddFavorite)           // Add media item to favorites
+		r.Delete("/{mediaId}", handlers.RemoveFavorite)      // Remove media item from favorites
+		r.Get("/", handlers.GetFavorites)                    // List all favorite media items
 	})
 
+	// --- Collections ---
 	r.Route("/collections", func(r chi.Router) {
-		r.Post("/", handlers.CreateCollection)
-		r.Get("/", handlers.GetCollections)
-		r.Get("/{id}", handlers.GetCollection)
-		r.Post("/{id}/media/{mediaId}", handlers.AddToCollection)
-		r.Delete("/{id}/media/{mediaId}", handlers.RemoveFromCollection)
+		r.Post("/", handlers.CreateCollection)               // Create a new collection
+		r.Get("/", handlers.GetCollections)                  // List all collections by user
+		r.Get("/{id}", handlers.GetCollection)               // Get a single collection by ID
+		r.Post("/{id}/media/{mediaId}", handlers.AddToCollection) // Add media to a collection
+		r.Delete("/{id}/media/{mediaId}", handlers.RemoveFromCollection) // Remove media from a collection
 	})
 
-	// Comments
+	// --- Comments ---
 	r.Route("/media/{id}/comments", func(r chi.Router) {
-		r.Get("/", handlers.GetComments)
-		r.Post("/", handlers.PostComment)
+		r.Get("/", handlers.GetComments)                     // Get comments for a media item
+		r.Post("/", handlers.PostComment)                    // Post a new comment to a media item
 	})
-	r.Delete("/comments/{id}", handlers.DeleteComment)
+	r.Delete("/comments/{id}", handlers.DeleteComment)        // Delete a specific comment
 
-	// Stats (optional)
-	r.Get("/media/{id}/stats", handlers.MediaStats)
-	r.Get("/user/uploads/stats", handlers.UploadStats)
-	r.Get("/user/sales/stats", handlers.SalesStats)
+	// --- Statistics ---
+	r.Get("/media/{id}/stats", handlers.MediaStats)           // View stats (views, likes, downloads) for a media item
+	r.Get("/user/uploads/stats", handlers.UploadStats)        // View stats for uploaded media by user
+	r.Get("/user/sales/stats", handlers.SalesStats)           // View sales stats for user's media
 
-	// Admin
+	// --- Admin Routes ---
 	r.Route("/admin", func(r chi.Router) {
-		r.Get("/users", handlers.AdminListUsers)
-		r.Put("/users/{id}", handlers.AdminUpdateUser)
-		r.Delete("/users/{id}", handlers.AdminDeleteUser)
-		r.Get("/reports", handlers.AdminReports)
+		r.Get("/users", handlers.AdminListUsers)             // Admin: List all users
+		r.Put("/users/{id}", handlers.AdminUpdateUser)       // Admin: Update user details
+		r.Delete("/users/{id}", handlers.AdminDeleteUser)    // Admin: Delete a user
+		r.Get("/reports", handlers.AdminReports)             // Admin: View system reports (e.g. abuse, content violations)
 	})
 
 	return r

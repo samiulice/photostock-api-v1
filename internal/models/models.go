@@ -105,7 +105,7 @@ type UploadHistory struct {
 	ID           int       `json:"id"`
 	MediaUUID    string    `json:"media_id"`
 	UserID       int       `json:"user_id"` //uploader
-	UploadededAt time.Time `json:"uploaded_at"`
+	UploadedAt time.Time `json:"uploaded_at"`
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
 }
