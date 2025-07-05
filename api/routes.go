@@ -29,7 +29,7 @@ func (app *application) routes() http.Handler {
 	mux.Handle("/images/*", http.StripPrefix("/images", fileServer))
 
 	// --- Authentication & User Management ---
-	mux.Route("api/v1/auth", func(r chi.Router) {
+	mux.Route("/api/v1/auth", func(r chi.Router) {
 		mux.Post("/register", app.Register) // Register a new user
 		mux.Post("/login", app.Login)       // User login
 		// mux.Post("/logout", app.Logout)               // User logout
@@ -43,7 +43,7 @@ func (app *application) routes() http.Handler {
 	})
 
 	// --- Media Management ---
-	// mux.Route("api/v1/media", func(r chi.Router) {
+	// mux.Route("/api/v1/media", func(r chi.Router) {
 	// 	mux.Get("/", app.ListMedia)                         // List all media
 	// 	mux.Post("/", app.UploadMedia)                      // Upload new media
 	// 	mux.Get("/{id}", app.GetMedia)                      // Retrieve a single media item by ID
@@ -55,7 +55,7 @@ func (app *application) routes() http.Handler {
 	// })
 
 	// --- Categories Management ---
-	mux.Route("api/v1/categories", func(r chi.Router) {
+	mux.Route("/api/v1/categories", func(r chi.Router) {
 		mux.Get("/", app.GetMediaCategories)     // List all categories
 		mux.Post("/", app.CreateMediaCategory)   // Create a new category
 		mux.Put("/", app.UpdateMediaCategory)    // Update an existing category
