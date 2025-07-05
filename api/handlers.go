@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/samiulice/photostock/internal/models"
+	"github.com/samiulice/photostock/internal/utils"
 
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
@@ -411,7 +412,7 @@ func (app *application) UploadMedia(w http.ResponseWriter, r *http.Request) {
 	licenseType, LicErr := strconv.Atoi(license_type)
 	// Validate fields
 	if catErr != nil || LicErr != nil || title == "" {
-		app.errorLog.Println("Missing or invalid fields")
+		app.errorLog.Println("Missing or invalid fields", "title:", title, "Description: ",description,"catid: ",catId, "lic_type",license_type)
 		Resp.Error = true
 		Resp.Message = "Missing or invalid fields"
 		app.writeJSON(w, http.StatusBadRequest, Resp)
@@ -422,46 +423,53 @@ func (app *application) UploadMedia(w http.ResponseWriter, r *http.Request) {
 	filename := app.GenerateSafeFilename(handler)
 
 	uploadDir := filepath.Join(".", "assets", "images", "original")
-	saveImage := func() (bool, string, int) {
-		// Check if folder exists
-		if _, err := os.Stat(uploadDir); os.IsNotExist(err) {
-			// Folder doesn't exist, create it
-			err := os.MkdirAll(uploadDir, os.ModePerm)
-			if err != nil {
-				app.errorLog.Println("Could not create upload directory:", err.Error())
-				return true, "Could not create upload directory", http.StatusInternalServerError
 
-			}
-		}
-
-		dstPath := filepath.Join(uploadDir, filename)
-		dst, err := os.Create(dstPath)
+	// Check if folder exists
+	if _, err := os.Stat(uploadDir); os.IsNotExist(err) {
+		// Folder doesn't exist, create it
+		err := os.MkdirAll(uploadDir, os.ModePerm)
 		if err != nil {
-			app.errorLog.Println("Could not save image to filesystem", err.Error())
-			return true, "Could not save image to filesystem", http.StatusInternalServerError
+			app.errorLog.Println("Could not create upload directory:", err.Error())
+			Resp.Error = true
+			Resp.Message = "Could not create upload directory"
+			app.writeJSON(w, http.StatusInternalServerError, Resp)
+			return
 		}
-		defer dst.Close()
-
-		_, err = io.Copy(dst, file)
-		if err != nil {
-			app.errorLog.Println("Error Saving file")
-			return true, "Error Saving file", http.StatusInternalServerError
-		}
-		return false, "", 200
 	}
 
-	//save original image
-	ok, msg, statusCode := saveImage()
-	if ok {
+	dstPath := filepath.Join(uploadDir, filename)
+	dst, err := os.Create(dstPath)
+	if err != nil {
 		app.errorLog.Println("Could not save image to filesystem", err.Error())
 		Resp.Error = true
-		Resp.Message = msg
-		app.writeJSON(w, statusCode, Resp)
+		Resp.Message = "Could not save image to filesystem"
+		app.writeJSON(w, http.StatusInternalServerError, Resp)
 		return
 	}
+	defer dst.Close()
+
+	_, err = io.Copy(dst, file)
+	if err != nil {
+		app.errorLog.Println("Error Saving file")
+		Resp.Error = true
+		Resp.Message = "Error saving file"
+		app.writeJSON(w, http.StatusInternalServerError, Resp)
+		return
+	}
+
 	// TODO:
+
 	//save watermarked image
+	outputBaseDir := filepath.Join(".", "assets", "images")
 	//save thumbnail
+	err = utils.GenerateImageVariants(dstPath, outputBaseDir, filename)
+	if err != nil {
+		app.errorLog.Println("Unable to save image variations: ", err.Error())
+		Resp.Error = true
+		Resp.Message = "Unable to save image variations"
+		app.writeJSON(w, http.StatusInternalServerError, Resp)
+		return
+	}
 
 	//get uploader details
 	token, ok := app.GetUserTokenFromContext(r.Context())
