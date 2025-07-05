@@ -29,21 +29,21 @@ func (app *application) routes() http.Handler {
 	mux.Handle("/images/*", http.StripPrefix("/images", fileServer))
 
 	// --- Authentication & User Management ---
-	mux.Route("/auth", func(r chi.Router) {
-		mux.Post("/register", app.Register)           // Register a new user
-		mux.Post("/login", app.Login)                 // User login
+	mux.Route("api/v1/auth", func(r chi.Router) {
+		mux.Post("/register", app.Register) // Register a new user
+		mux.Post("/login", app.Login)       // User login
 		// mux.Post("/logout", app.Logout)               // User logout
-		mux.Get("/profile", app.Profile)              // Get currently logged-in user's profile
-		mux.Put("/profile", app.UpdateProfile)        // Update user profile information
+		mux.Get("/profile", app.Profile)       // Get currently logged-in user's profile
+		mux.Put("/profile", app.UpdateProfile) // Update user profile information
 		// mux.Put("/profile/deactivate", app.DeactivateProfile)        // Deactivate user profile information
-		mux.Put("/profile/delete", app.DeleteProfile)        // Delete user profile information
+		mux.Delete("/profile/delete", app.DeleteProfile) // Delete user profile information
 		// mux.Put("/password", app.ChangePassword)      // Change password for logged-in user
 		// mux.Post("/forgot-password", app.ForgotPassword) // Request password reset via email
 		// mux.Post("/reset-password", app.ResetPassword)   // Reset password using token
 	})
 
 	// --- Media Management ---
-	// mux.Route("/media", func(r chi.Router) {
+	// mux.Route("api/v1/media", func(r chi.Router) {
 	// 	mux.Get("/", app.ListMedia)                         // List all media
 	// 	mux.Post("/", app.UploadMedia)                      // Upload new media
 	// 	mux.Get("/{id}", app.GetMedia)                      // Retrieve a single media item by ID
@@ -55,13 +55,12 @@ func (app *application) routes() http.Handler {
 	// })
 
 	// --- Categories Management ---
-	mux.Route("/categories", func(r chi.Router) {
-		mux.Get("/", app.GetMediaCategories)                    // List all categories
-		mux.Post("/", app.CreateMediaCategory)                 // Create a new category
-		mux.Put("/", app.UpdateMediaCategory)              // Update an existing category
-		mux.Delete("/", app.DeleteMediaCategory)           // Delete a category
+	mux.Route("api/v1/categories", func(r chi.Router) {
+		mux.Get("/", app.GetMediaCategories)     // List all categories
+		mux.Post("/", app.CreateMediaCategory)   // Create a new category
+		mux.Put("/", app.UpdateMediaCategory)    // Update an existing category
+		mux.Delete("/", app.DeleteMediaCategory) // Delete a category
 	})
-
 
 	return mux
 }
