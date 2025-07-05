@@ -56,10 +56,14 @@ func (app *application) routes() http.Handler {
 
 	// --- Categories Management ---
 	mux.Route("/api/v1/categories", func(r chi.Router) {
-		r.Get("/", app.GetMediaCategories)     // List all categories
-		r.Post("/", app.CreateMediaCategory)   // Create a new category
-		r.Put("/", app.UpdateMediaCategory)    // Update an existing category
-		r.Delete("/", app.DeleteMediaCategory) // Delete a category
+		r.Use(app.AuthUser)
+		r.Get("/", app.GetMediaCategories) // List all categories
+		r.Group(func(r chi.Router) {
+			r.Use(app.AuthAdmin)
+			r.Post("/", app.CreateMediaCategory)   // Create a new category
+			r.Put("/", app.UpdateMediaCategory)    // Update an existing category
+			r.Delete("/", app.DeleteMediaCategory) // Delete a category
+		})
 	})
 
 	return mux

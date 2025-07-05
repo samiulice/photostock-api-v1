@@ -43,9 +43,9 @@ func (app *application) Register(w http.ResponseWriter, r *http.Request) {
 	user.Password = string(hashedPassword)
 
 	err = app.DB.UserRepo.Create(r.Context(), &user)
-	if err == sql.ErrNoRows {
-		app.errorLog.Println("ERROR: SignUp => username already exists:", err)
-		app.badRequest(w, errors.New("username already exists"))
+	if strings.Contains(err.Error(), "SQLSTATE 23505") {
+		app.errorLog.Println("ERROR: SignUp => Email already associated with another account:", err)
+		app.badRequest(w, errors.New("Email already associated with another account"))
 		return
 	} else if err != nil {
 		app.errorLog.Println("ERROR: SignUp => unable to create user:", err)
@@ -285,20 +285,15 @@ func (app *application) GetAllUsers(w http.ResponseWriter, r *http.Request) {
 
 // GetMediaCategories retrieves all possible category list from the media_categories registry
 func (app *application) GetMediaCategories(w http.ResponseWriter, r *http.Request) {
-
-	//List all categories if list == true
-	list := r.URL.Query().Get("list") == "true"
-
 	var categories []*models.MediaCategory
 	var err error
-	if list {
+
 		categories, err = app.DB.MediaCategoryRepo.GetAll(r.Context())
 		if err != nil {
 			app.errorLog.Println("No category available")
 			app.badRequest(w, errors.New("Internal Server Error: No category available"))
 			return
 		}
-	}
 	var Resp struct {
 		Error           bool                    `json:"error"`
 		Message         string                  `json:"message"`
