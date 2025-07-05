@@ -2,7 +2,6 @@ package api
 
 import (
 	"net/http"
-	"path/filepath"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/cors"
@@ -23,24 +22,23 @@ func (app *application) routes() http.Handler {
 
 	//setup image server
 	// Check if image directory exists
-	imageDir := filepath.Join("static", "images")
-	//Image for serving image files
-	fileServer := http.FileServer(http.Dir(imageDir))
-	mux.Handle("/images/*", http.StripPrefix("/images", fileServer))
-
+	// imageDir := filepath.Join("static", "images")
+	// //Image for serving image files
+	// fileServer := http.FileServer(http.Dir(imageDir))
+	// mux.Handle("/images/*", http.StripPrefix("/images", fileServer))
+	
 	// --- Authentication & User Management ---
-	mux.Route("/api/v1/auth", func(r chi.Router) {
-		mux.Post("/register", app.Register) // Register a new user
-		mux.Post("/login", app.Login)       // User login
-		// mux.Post("/logout", app.Logout)               // User logout
-		mux.Get("/profile", app.Profile)       // Get currently logged-in user's profile
-		mux.Put("/profile", app.UpdateProfile) // Update user profile information
-		// mux.Put("/profile/deactivate", app.DeactivateProfile)        // Deactivate user profile information
-		mux.Delete("/profile/delete", app.DeleteProfile) // Delete user profile information
-		// mux.Put("/password", app.ChangePassword)      // Change password for logged-in user
-		// mux.Post("/forgot-password", app.ForgotPassword) // Request password reset via email
-		// mux.Post("/reset-password", app.ResetPassword)   // Reset password using token
-	})
+
+	mux.Post("/api/v1/auth/register", app.Register) // Register a new user
+	mux.Post("/api/v1/auth/login", app.Login)       // User login
+	// mux.Post("/api/v1/auth/logout", app.Logout)               // User logout
+	mux.Get("/api/v1/auth/profile", app.Profile)       // Get currently logged-in user's profile
+	mux.Put("/api/v1/auth/profile", app.UpdateProfile) // Update user profile information
+	// mux.Put("/profile/deactivate", app.DeactivateProfile)        // Deactivate user profile information
+	mux.Delete("/api/v1/auth/profile/delete", app.DeleteProfile) // Delete user profile information
+	// mux.Put("/api/v1/auth/password", app.ChangePassword)      // Change password for logged-in user
+	// mux.Post("/api/v1/auth/forgot-password", app.ForgotPassword) // Request password reset via email
+	// mux.Post("/api/v1/auth/reset-password", app.ResetPassword)   // Reset password using token
 
 	// --- Media Management ---
 	// mux.Route("/api/v1/media", func(r chi.Router) {
