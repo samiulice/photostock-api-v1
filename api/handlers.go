@@ -7,7 +7,11 @@ import (
 	_ "image/gif"
 	_ "image/jpeg"
 	_ "image/png"
+	"io"
 	"net/http"
+	"os"
+	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -43,14 +47,16 @@ func (app *application) Register(w http.ResponseWriter, r *http.Request) {
 	user.Password = string(hashedPassword)
 
 	err = app.DB.UserRepo.Create(r.Context(), &user)
-	if strings.Contains(err.Error(), "SQLSTATE 23505") {
-		app.errorLog.Println("ERROR: SignUp => Email already associated with another account:", err)
-		app.badRequest(w, errors.New("Email already associated with another account"))
-		return
-	} else if err != nil {
-		app.errorLog.Println("ERROR: SignUp => unable to create user:", err)
-		app.badRequest(w, errors.New("Internal Server Error: Unable to create user"))
-		return
+	if err != nil {
+		if strings.Contains(err.Error(), "SQLSTATE 23505") {
+			app.errorLog.Println("ERROR: SignUp => Email already associated with another account:", err)
+			app.badRequest(w, errors.New("Email already associated with another account"))
+			return
+		} else {
+			app.errorLog.Println("ERROR: SignUp => unable to create user:", err)
+			app.badRequest(w, errors.New("Internal Server Error: Unable to create user"))
+			return
+		}
 	}
 
 	//sanitize input
@@ -85,6 +91,7 @@ func (app *application) Register(w http.ResponseWriter, r *http.Request) {
 
 // generateSignedToken generate a token string for implementing JWT
 func generateSignedToken(user *models.User) (string, error) {
+	app.infoLog.Println("signed in: ", user)
 	// Create JWT claims
 	claims := jwt.MapClaims{
 		"id":       user.ID,
@@ -288,12 +295,12 @@ func (app *application) GetMediaCategories(w http.ResponseWriter, r *http.Reques
 	var categories []*models.MediaCategory
 	var err error
 
-		categories, err = app.DB.MediaCategoryRepo.GetAll(r.Context())
-		if err != nil {
-			app.errorLog.Println("No category available")
-			app.badRequest(w, errors.New("Internal Server Error: No category available"))
-			return
-		}
+	categories, err = app.DB.MediaCategoryRepo.GetAll(r.Context())
+	if err != nil {
+		app.errorLog.Println("No category available")
+		app.badRequest(w, errors.New("Internal Server Error: No category available"))
+		return
+	}
 	var Resp struct {
 		Error           bool                    `json:"error"`
 		Message         string                  `json:"message"`
@@ -349,13 +356,13 @@ func (app *application) UpdateMediaCategory(w http.ResponseWriter, r *http.Reque
 	app.writeJSON(w, http.StatusOK, Resp)
 }
 func (app *application) DeleteMediaCategory(w http.ResponseWriter, r *http.Request) {
-	var m models.MediaCategory
-	err := app.readJSON(w, r, &m)
+	param := r.URL.Query().Get("cat_id")
+	cat_id, err := strconv.Atoi(param)
 	if err != nil {
-		app.badRequest(w, fmt.Errorf("ERROR:unable to read json %w", err))
+		app.badRequest(w, fmt.Errorf("Invalid id", err))
 		return
 	}
-	err = app.DB.MediaCategoryRepo.Delete(r.Context(), m.ID)
+	err = app.DB.MediaCategoryRepo.Delete(r.Context(), cat_id)
 	if err != nil {
 		app.badRequest(w, err)
 		return
@@ -368,4 +375,123 @@ func (app *application) DeleteMediaCategory(w http.ResponseWriter, r *http.Reque
 	Resp.Error = false
 	Resp.Message = "Media category removed"
 	app.writeJSON(w, http.StatusOK, Resp)
+}
+
+// Media content management
+func (app *application) UploadMedia(w http.ResponseWriter, r *http.Request) {
+	var Resp struct {
+		Error   bool   `json:"error"`
+		Message string `json:"message"`
+	}
+	err := r.ParseMultipartForm(20 << 20) // 20MB max
+	if err != nil {
+		app.errorLog.Println("Could not parse multipart form")
+		Resp.Error = true
+		Resp.Message = "Could not parse multipart form"
+		app.writeJSON(w, http.StatusBadRequest, Resp)
+		return
+	}
+
+	file, handler, err := r.FormFile("image")
+	if err != nil {
+		app.errorLog.Println("Image File Required")
+		Resp.Error = true
+		Resp.Message = "Image File Required"
+		app.writeJSON(w, http.StatusBadRequest, Resp)
+		return
+	}
+	defer file.Close()
+
+	title := r.FormValue("title")
+	description := r.FormValue("description")
+	catId := r.FormValue("category_id")
+	license_type := r.FormValue("license_type") // "free" or "premium"
+	//validate categoryId
+	categoryId, catErr := strconv.Atoi(catId)
+	licenseType, LicErr := strconv.Atoi(license_type)
+	// Validate fields
+	if catErr != nil || LicErr != nil || title == "" {
+		app.errorLog.Println("Missing or invalid fields")
+		Resp.Error = true
+		Resp.Message = "Missing or invalid fields"
+		app.writeJSON(w, http.StatusBadRequest, Resp)
+		return
+	}
+
+	// Generate safe filename
+	filename := app.GenerateSafeFilename(handler)
+
+	uploadDir := filepath.Join(".", "assets", "images", "original")
+	saveImage := func() (bool, string, int) {
+		// Check if folder exists
+		if _, err := os.Stat(uploadDir); os.IsNotExist(err) {
+			// Folder doesn't exist, create it
+			err := os.MkdirAll(uploadDir, os.ModePerm)
+			if err != nil {
+				app.errorLog.Println("Could not create upload directory:", err.Error())
+				return true, "Could not create upload directory", http.StatusInternalServerError
+
+			}
+		}
+
+		dstPath := filepath.Join(uploadDir, filename)
+		dst, err := os.Create(dstPath)
+		if err != nil {
+			app.errorLog.Println("Could not save image to filesystem", err.Error())
+			return true, "Could not save image to filesystem", http.StatusInternalServerError
+		}
+		defer dst.Close()
+
+		_, err = io.Copy(dst, file)
+		if err != nil {
+			app.errorLog.Println("Error Saving file")
+			return true, "Error Saving file", http.StatusInternalServerError
+		}
+		return false, "", 200
+	}
+
+	//save original image
+	ok, msg, statusCode := saveImage()
+	if ok {
+		app.errorLog.Println("Could not save image to filesystem", err.Error())
+		Resp.Error = true
+		Resp.Message = msg
+		app.writeJSON(w, statusCode, Resp)
+		return
+	}
+	// TODO:
+	//save watermarked image
+	//save thumbnail
+
+	//get uploader details
+	token, ok := app.GetUserTokenFromContext(r.Context())
+	if !ok {
+		app.errorLog.Println("Unable to get user token from request context")
+		Resp.Error = true
+		Resp.Message = "Access Denied"
+		app.writeJSON(w, http.StatusUnauthorized, Resp)
+		return
+	}
+	// Save metadata to DB
+	image := &models.Media{
+		MediaTitle:  title,
+		MediaUUID:   filename,
+		Description: description,
+		CategoryID:  categoryId,
+		LicenseType: licenseType,
+		UploaderID:  token.ID,
+	}
+	app.infoLog.Println(image.UploaderID, token)
+	err = app.DB.MediaRepo.Create(r.Context(), image)
+	if err != nil {
+		app.errorLog.Println("Could not save image metadata", err.Error())
+		Resp.Error = true
+		Resp.Message = "Could not save image metadata"
+		app.writeJSON(w, http.StatusInternalServerError, Resp)
+		return
+	}
+
+	Resp.Error = false
+	Resp.Message = "Image uploaded successfully"
+	app.writeJSON(w, http.StatusCreated, Resp)
 }

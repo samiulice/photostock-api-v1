@@ -10,7 +10,7 @@ type DBRepository struct {
 	MediaCategoryRepo    *MediaCategoryRepo
 	UserRepo             *UserRepo
 	// SubscriptionRepo     *SubscriptionRepo
-	// MediaRepo            *MediaRepo
+	MediaRepo            *MediaRepo
 	// DownloadHistoryRepo  *DownloadHistoryRepo
 }
 
@@ -21,7 +21,7 @@ func NewDBRepository(db *pgxpool.Pool) *DBRepository {
 		MediaCategoryRepo:    NewMediaCategoryRepo(db),
 		UserRepo:             NewUserRepo(db),
 		// SubscriptionRepo:     NewSubscriptionRepo(db),
-		// MediaRepo:            NewMediaRepo(db),
+		MediaRepo:            NewMediaRepo(db),
 		// DownloadHistoryRepo:  NewDownloadHistoryRepo(db),
 	}
 }

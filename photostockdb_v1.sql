@@ -69,18 +69,21 @@ CREATE TABLE subscriptions (
 -- TABLE: medias
 CREATE TABLE medias (
     id SERIAL PRIMARY KEY,
-    media_uuid VARCHAR(255) UNIQUE NOT NULL DEFAULT '',
-    media_title VARCHAR(255) NOT NULL DEFAULT '',
+    media_uuid VARCHAR(255) UNIQUE NOT NULL,
+    media_title VARCHAR(255) NOT NULL,
     description TEXT DEFAULT '',
-    media_url TEXT NOT NULL DEFAULT '',
-    category_id INTEGER DEFAULT NULL,
-    license_type INTEGER DEFAULT 0,
-    total_earnings NUMERIC(20,2) default 0,
+    category_id INTEGER,
+    license_type INTEGER NOT NULL DEFAULT 0,
+    uploader_id INTEGER,
+    total_earnings NUMERIC(20,2) DEFAULT 0,
     created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_media_category FOREIGN KEY (category_id)
-        REFERENCES media_categories (id) ON DELETE SET NULL
+        REFERENCES media_categories (id) ON DELETE SET NULL,
+    CONSTRAINT fk_uploader_user FOREIGN KEY (uploader_id)
+        REFERENCES users (id) ON DELETE SET NULL
 );
+
 
 -- TABLE: download_history
 CREATE TABLE download_history (
@@ -101,7 +104,7 @@ CREATE TABLE upload_history (
     id SERIAL PRIMARY KEY,
     media_uuid VARCHAR(255) NOT NULL DEFAULT '',
     user_id INTEGER NOT NULL,
-    uploadeded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_uploadd_media FOREIGN KEY (media_uuid)
@@ -116,4 +119,5 @@ CREATE INDEX idx_users_role ON users (role);
 CREATE INDEX idx_medias_uuid ON medias (media_uuid);
 CREATE INDEX idx_subscription_user_id ON subscriptions (user_id);
 CREATE INDEX idx_download_user_id ON download_history (user_id);
-CREATE INDEX idx_dupload_user_id ON upload_history (user_id);
+CREATE INDEX idx_upload_user_id ON upload_history (user_id);
+

@@ -43,23 +43,24 @@ func (app *application) routes() http.Handler {
 	})
 
 	// --- Media Management ---
-	// mux.Route("/api/v1/media", func(r chi.Router) {
+	mux.Route("/api/v1/media", func(r chi.Router) {
+		r.Use(app.AuthUser)
 	// 	r.Get("/", app.ListMedia)                         // List all media
-	// 	r.Post("/", app.UploadMedia)                      // Upload new media
+		r.Post("/", app.UploadMedia)                      // Upload new media
 	// 	r.Get("/{id}", app.GetMedia)                      // Retrieve a single media item by ID
 	// 	r.Put("/{id}", app.UpdateMedia)                   // Update an existing media item
 	// 	r.Delete("/{id}", app.DeleteMedia)                // Delete a media item
 
 	// 	r.Get("/user/{userId}", app.UserMedia)            // List all media uploaded by a specific user
 	// 	r.Get("/category/{slug}", app.CategoryMedia)      // List media by category slug
-	// })
+	})
 
 	// --- Categories Management ---
 	mux.Route("/api/v1/categories", func(r chi.Router) {
-		r.Use(app.AuthUser)
 		r.Get("/", app.GetMediaCategories) // List all categories
 		r.Group(func(r chi.Router) {
-			r.Use(app.AuthAdmin)
+			// TODO:
+			// r.Use(app.AuthAdmin)
 			r.Post("/", app.CreateMediaCategory)   // Create a new category
 			r.Put("/", app.UpdateMediaCategory)    // Update an existing category
 			r.Delete("/", app.DeleteMediaCategory) // Delete a category

@@ -79,8 +79,8 @@ func (app *application) AuthUser(next http.Handler) http.Handler {
 
 			// Safely extract user fields from claims
 			tokenUser := &models.JWT{}
-			if id, ok := claims["id"].(int); ok {
-				tokenUser.ID = id
+			if idFloat, ok := claims["id"].(float64); ok {
+				tokenUser.ID = int(idFloat)
 			}
 			if name, ok := claims["name"].(string); ok {
 				tokenUser.Name = name
@@ -104,7 +104,7 @@ func (app *application) AuthUser(next http.Handler) http.Handler {
 				tokenUser.IssuedAt = int64(iat)
 			}
 			// No userStruct needed; user is already a *models.User
-
+			app.infoLog.Println(tokenUser.ID)
 			// Add user struct to the request context
 			ctx := context.WithValue(r.Context(), contextKey("user"), tokenUser)
 			next.ServeHTTP(w, r.WithContext(ctx))

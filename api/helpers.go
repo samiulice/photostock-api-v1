@@ -3,10 +3,15 @@ package api
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"math/rand"
+	"mime/multipart"
 	"net/http"
+	"path/filepath"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 // readJSON read json from request body into data. It accepts a sinle JSON of 1MB max size value in the body
@@ -82,4 +87,11 @@ func (app *application) GenerateRandomAlphanumericCode(length int) string {
 
 	// Convert the byte slice to a string and return the result.
 	return string(id)
+}
+
+// GenerateSafeFilename will generate a filename for image
+func (app *application) GenerateSafeFilename(handler *multipart.FileHeader) string {
+	ext := filepath.Ext(handler.Filename)
+	safeBase := uuid.NewString()
+	return fmt.Sprintf("%s_%d%s", safeBase, time.Now().UnixNano(), ext)
 }

@@ -93,21 +93,22 @@ type Media struct {
 	MediaUUID     string        `json:"media_uuid"`
 	MediaTitle    string        `json:"media_title"`
 	Description   string        `json:"description"`
-	CategoryID    *int          `json:"category_id"` // nullable FK
+	CategoryID    int          `json:"category_id"` // foreign key of media_categories
 	TotalEarnings float64       `json:"total_earnings"`
 	LicenseType   int           `json:"license_type"` //premium = 0, free = 1
 	MediaCategory MediaCategory `json:"media_category"`
+	UploaderID    int           `json:"uploader_id"` //foreign key of users table
 	CreatedAt     time.Time     `json:"created_at"`
 	UpdatedAt     time.Time     `json:"updated_at"`
 }
 
 type UploadHistory struct {
-	ID           int       `json:"id"`
-	MediaUUID    string    `json:"media_id"`
-	UserID       int       `json:"user_id"` //uploader
+	ID         int       `json:"id"`
+	MediaUUID  string    `json:"media_id"`
+	UserID     int       `json:"user_id"` //uploader
 	UploadedAt time.Time `json:"uploaded_at"`
-	CreatedAt    time.Time `json:"created_at"`
-	UpdatedAt    time.Time `json:"updated_at"`
+	CreatedAt  time.Time `json:"created_at"`
+	UpdatedAt  time.Time `json:"updated_at"`
 }
 type DownloadHistory struct {
 	ID           int       `json:"id"`
