@@ -1,11 +1,14 @@
 -- CLEANUP SECTION
-DROP TABLE IF EXISTS download_history;
-DROP TABLE IF EXISTS upload_history;
-DROP TABLE IF EXISTS medias;
-DROP TABLE IF EXISTS subscriptions;
-DROP TABLE IF EXISTS users;
-DROP TABLE IF EXISTS media_categories;
-DROP TABLE IF EXISTS subscription_plans;
+-- Drop everything in the public schema (CASCADE deletes all dependencies)
+DROP SCHEMA public CASCADE;
+
+-- Recreate the schema
+CREATE SCHEMA public;
+
+-- Re-grant privileges to your user
+GRANT ALL ON SCHEMA public TO photostock_db_kms3_user;
+GRANT ALL ON SCHEMA public TO public;  -- Optional, for dev use
+
 
 -- TABLE: subscription_plans
 CREATE TABLE subscription_plans (
@@ -23,6 +26,7 @@ CREATE TABLE subscription_plans (
 CREATE TABLE media_categories (
     id SERIAL PRIMARY KEY,
     name VARCHAR(100) NOT NULL DEFAULT '',
+    thumbnail_url TEXT DEFAULT '',
     created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
@@ -75,6 +79,7 @@ CREATE TABLE medias (
     category_id INTEGER,
     license_type INTEGER NOT NULL DEFAULT 0,
     uploader_id INTEGER,
+    uploader_name VARCHAR(255) NOT NULL DEFAULT '',
     total_earnings NUMERIC(20,2) DEFAULT 0,
     created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
@@ -120,4 +125,3 @@ CREATE INDEX idx_medias_uuid ON medias (media_uuid);
 CREATE INDEX idx_subscription_user_id ON subscriptions (user_id);
 CREATE INDEX idx_download_user_id ON download_history (user_id);
 CREATE INDEX idx_upload_user_id ON upload_history (user_id);
-

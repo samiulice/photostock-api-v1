@@ -10,6 +10,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -307,28 +308,107 @@ func (app *application) GetMediaCategories(w http.ResponseWriter, r *http.Reques
 		Message         string                  `json:"message"`
 		MediaCategories []*models.MediaCategory `json:"media_categories"`
 	}
+	allCategory := models.MediaCategory{
+		ID:   0,
+		Name: "All",
+	}
+	if r.URL.Query().Get("isnav") == "true" {
+		Resp.MediaCategories = append(Resp.MediaCategories, &allCategory)
+	}
 	Resp.Error = false
-	Resp.MediaCategories = categories
+	Resp.MediaCategories = append(Resp.MediaCategories, categories...)
 	Resp.Message = "Data fetched successfully"
 	app.writeJSON(w, http.StatusOK, Resp)
 }
 
 // CreateMediaCategory creates a new category to the database
 func (app *application) CreateMediaCategory(w http.ResponseWriter, r *http.Request) {
-	var category models.MediaCategory
-	err := app.readJSON(w, r, &category)
+	var Resp struct {
+		Error   bool   `json:"error"`
+		Message string `json:"message"`
+	}
+	err := r.ParseMultipartForm(20 << 20) // 20MB max
 	if err != nil {
-		app.badRequest(w, fmt.Errorf("ERROR:unable to read json %w", err))
+		app.errorLog.Println("Could not parse multipart form")
+		Resp.Error = true
+		Resp.Message = "Could not parse multipart form"
+		app.writeJSON(w, http.StatusBadRequest, Resp)
 		return
+	}
+
+	file, handler, err := r.FormFile("image")
+	if err != nil {
+		app.errorLog.Println("Image File Required")
+		Resp.Error = true
+		Resp.Message = "Image File Required"
+		app.writeJSON(w, http.StatusBadRequest, Resp)
+		return
+	}
+	defer file.Close()
+
+	name := r.FormValue("name")
+	// Validate fields
+	if name == "" {
+		app.errorLog.Println("Missing or invalid fields", "name:", name)
+		Resp.Error = true
+		Resp.Message = "Missing or invalid fields"
+		app.writeJSON(w, http.StatusBadRequest, Resp)
+		return
+	}
+	// Generate safe filename
+	filename := app.GenerateSafeFilename(handler)
+	uploadDir := filepath.Join(".", "assets", "images", "categories")
+
+	// Check if folder exists
+	if _, err := os.Stat(uploadDir); os.IsNotExist(err) {
+		// Folder doesn't exist, create it
+		err := os.MkdirAll(uploadDir, os.ModePerm)
+		if err != nil {
+			app.errorLog.Println("Could not create upload directory:", err.Error())
+			Resp.Error = true
+			Resp.Message = "Could not create upload directory"
+			app.writeJSON(w, http.StatusInternalServerError, Resp)
+			return
+		}
+	}
+	dstPath := filepath.Join(uploadDir, filename)
+	dst, err := os.Create(dstPath)
+	if err != nil {
+		app.errorLog.Println("Could not save image to filesystem", err.Error())
+		Resp.Error = true
+		Resp.Message = "Could not save image to filesystem"
+		app.writeJSON(w, http.StatusInternalServerError, Resp)
+		return
+	}
+	defer dst.Close()
+
+	_, err = io.Copy(dst, file)
+	if err != nil {
+		app.errorLog.Println("Error Saving file: ", err.Error())
+		Resp.Error = true
+		Resp.Message = "Error saving file"
+		app.writeJSON(w, http.StatusInternalServerError, Resp)
+		return
+	}
+	//resize the image to 540x540 px
+	err = utils.ResizeImageInPlace(dstPath, 540, 540)
+	if err != nil {
+		app.errorLog.Println("Error resizing file: ", err.Error())
+		Resp.Error = true
+		Resp.Message = "Error resizing file"
+		app.writeJSON(w, http.StatusInternalServerError, Resp)
+		return
+	}
+
+	//save metadata to the backend
+	category := models.MediaCategory{
+		Name:         name,
+		ThumbnailURL: models.APIEndPoint + path.Join("images", "categories", filename),
 	}
 	err = app.DB.MediaCategoryRepo.Create(r.Context(), &category)
 	if err != nil {
 		app.badRequest(w, err)
 		return
-	}
-	var Resp struct {
-		Error   bool   `json:"error"`
-		Message string `json:"message"`
 	}
 
 	Resp.Error = false
@@ -379,6 +459,59 @@ func (app *application) DeleteMediaCategory(w http.ResponseWriter, r *http.Reque
 }
 
 // Media content management
+
+func (app *application) ListMedia(w http.ResponseWriter, r *http.Request) {
+	category := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("category")))
+	var Resp struct {
+		Error   bool            `json:"error"`
+		Message string          `json:"message"`
+		Medias  []*models.Media `json:"medias"`
+	}
+	categoryID, err := strconv.Atoi(category)
+	if err != nil || category == "" {
+		app.errorLog.Println("Please specify image category id")
+		Resp.Error = true
+		Resp.Message = "Please specify image category id"
+		app.writeJSON(w, http.StatusBadRequest, Resp)
+		return
+	}
+
+	app.infoLog.Println("Fetching ", category)
+	var list []*models.Media
+
+	//get the images metadata from database
+	if category == "0" {
+		list, err = app.DB.MediaRepo.GetAll(r.Context())
+	} else {
+		list, err = app.DB.MediaRepo.GetAllByCategoryID(r.Context(), categoryID)
+	}
+
+	if err != nil && err != sql.ErrNoRows {
+		app.errorLog.Println("Could not get image metadata: ", err)
+		Resp.Error = true
+		Resp.Message = "Image metadata can't be loaded"
+		app.writeJSON(w, http.StatusBadRequest, Resp)
+		return
+	}
+
+	fileDir := filepath.Join(".", "assets", "images", "thumbnails")
+	for _, v := range list {
+		_, err := os.Stat(filepath.Join(fileDir, "thumb_"+v.MediaUUID))
+		if err == nil {
+			//TODO:
+			v.MediaURL = models.APIEndPoint + path.Join("images", "thumbnails", "thumb_"+v.MediaUUID)
+			v.MediaUUID = ""
+			Resp.Medias = append(Resp.Medias, v)
+			app.infoLog.Println(*v)
+		} else {
+			app.errorLog.Println(*v)
+		}
+	}
+
+	Resp.Error = false
+	Resp.Message = "Images retrieved successfully"
+	app.writeJSON(w, http.StatusOK, Resp)
+}
 func (app *application) UploadMedia(w http.ResponseWriter, r *http.Request) {
 	var Resp struct {
 		Error   bool   `json:"error"`
@@ -403,15 +536,19 @@ func (app *application) UploadMedia(w http.ResponseWriter, r *http.Request) {
 	}
 	defer file.Close()
 
-	title := r.FormValue("title")
+	title := r.FormValue("media_title")
 	description := r.FormValue("description")
 	catId := r.FormValue("category_id")
-	license_type := r.FormValue("license_type") // "free" or "premium"
+	license_type := r.FormValue("license_type") // "free = 0" or "premium = 1"
 	//validate categoryId
 	categoryId, catErr := strconv.Atoi(catId)
-	licenseType, LicErr := strconv.Atoi(license_type)
+	licenseType := 0
+	if license_type == "paid" {
+		licenseType = 1
+	}
+	LicErr := license_type == "free" || license_type == "paid"
 	// Validate fields
-	if catErr != nil || LicErr != nil || title == "" {
+	if catErr != nil || LicErr || title == "" {
 		app.errorLog.Println("Missing or invalid fields", "title:", title, "Description: ", description, "catid: ", catId, "lic_type", license_type)
 		Resp.Error = true
 		Resp.Message = "Missing or invalid fields"
@@ -457,8 +594,6 @@ func (app *application) UploadMedia(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO:
-
 	//save watermarked image
 	outputBaseDir := filepath.Join(".", "assets", "images")
 	//save thumbnail
@@ -482,12 +617,13 @@ func (app *application) UploadMedia(w http.ResponseWriter, r *http.Request) {
 	}
 	// Save metadata to DB
 	image := &models.Media{
-		MediaTitle:  title,
-		MediaUUID:   filename,
-		Description: description,
-		CategoryID:  categoryId,
-		LicenseType: licenseType,
-		UploaderID:  token.ID,
+		MediaTitle:   title,
+		MediaUUID:    filename,
+		Description:  description,
+		CategoryID:   categoryId,
+		LicenseType:  licenseType,
+		UploaderID:   token.ID,
+		UploaderName: token.Name,
 	}
 	app.infoLog.Println(image.UploaderID, token)
 	err = app.DB.MediaRepo.Create(r.Context(), image)

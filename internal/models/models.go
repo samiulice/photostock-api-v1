@@ -5,6 +5,7 @@ import (
 )
 
 const (
+	APIEndPoint = "http://localhost:8080/"
 	APPName    = "Photostock"
 	APPVersion = "1.0"
 	DBHost     = "localhost"
@@ -52,6 +53,7 @@ type SubscriptionPlan struct {
 type MediaCategory struct {
 	ID        int       `json:"id"`
 	Name      string    `json:"name"`
+	ThumbnailURL string `json:"thumbnail_url"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
@@ -91,6 +93,7 @@ type Subscription struct {
 type Media struct {
 	ID            int           `json:"id"`
 	MediaUUID     string        `json:"media_uuid"`
+	MediaURL     string        `json:"media_url"`
 	MediaTitle    string        `json:"media_title"`
 	Description   string        `json:"description"`
 	CategoryID    int          `json:"category_id"` // foreign key of media_categories
@@ -98,6 +101,7 @@ type Media struct {
 	LicenseType   int           `json:"license_type"` //premium = 0, free = 1
 	MediaCategory MediaCategory `json:"media_category"`
 	UploaderID    int           `json:"uploader_id"` //foreign key of users table
+	UploaderName    string           `json:"uploader_name"` 
 	CreatedAt     time.Time     `json:"created_at"`
 	UpdatedAt     time.Time     `json:"updated_at"`
 }

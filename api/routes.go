@@ -21,12 +21,10 @@ func (app *application) routes() http.Handler {
 	// Set up a simple logger middleware
 	mux.Use(app.Logger)
 
-	//setup image server
-	// Check if image directory exists
-	imageDir := filepath.Join("static", "images")
-	//Image for serving image files
-	fileServer := http.FileServer(http.Dir(imageDir))
-	mux.Handle("/images/*", http.StripPrefix("/images", fileServer))
+	// Serve /images/ → ./assets/images/
+	thumbnailDir := filepath.Join(".", "assets", "images")
+	fs := http.StripPrefix("/images/", http.FileServer(http.Dir(thumbnailDir)))
+	mux.Handle("/images/*", fs)
 
 	// --- Authentication & User Management ---
 	mux.Route("/api/v1/auth", func(r chi.Router) {
@@ -44,15 +42,18 @@ func (app *application) routes() http.Handler {
 
 	// --- Media Management ---
 	mux.Route("/api/v1/media", func(r chi.Router) {
-		r.Use(app.AuthUser)
-		// r.Get("/", app.ListMedia)                         // List all media
-		r.Post("/", app.UploadMedia)                      // Upload new media
-	// 	r.Get("/{id}", app.GetMedia)                      // Retrieve a single media item by ID
-	// 	r.Put("/{id}", app.UpdateMedia)                   // Update an existing media item
-	// 	r.Delete("/{id}", app.DeleteMedia)                // Delete a media item
+		r.Get("/", app.ListMedia)    // List all media
+		r.Group(func(r chi.Router) {
+			r.Use(app.AuthUser)
+			r.Post("/", app.UploadMedia) // Upload new media
+		})
+		
+		// 	r.Get("/{id}", app.GetMedia)                      // Retrieve a single media item by ID
+		// 	r.Put("/{id}", app.UpdateMedia)                   // Update an existing media item
+		// 	r.Delete("/{id}", app.DeleteMedia)                // Delete a media item
 
-	// 	r.Get("/user/{userId}", app.UserMedia)            // List all media uploaded by a specific user
-	// 	r.Get("/category/{slug}", app.CategoryMedia)      // List media by category slug
+		// 	r.Get("/user/{userId}", app.UserMedia)            // List all media uploaded by a specific user
+		// 	r.Get("/category/{slug}", app.CategoryMedia)      // List media by category slug
 	})
 
 	// --- Categories Management ---
