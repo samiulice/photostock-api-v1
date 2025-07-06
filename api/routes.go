@@ -45,7 +45,7 @@ func (app *application) routes() http.Handler {
 	// --- Media Management ---
 	mux.Route("/api/v1/media", func(r chi.Router) {
 		r.Use(app.AuthUser)
-	// 	r.Get("/", app.ListMedia)                         // List all media
+		// r.Get("/", app.ListMedia)                         // List all media
 		r.Post("/", app.UploadMedia)                      // Upload new media
 	// 	r.Get("/{id}", app.GetMedia)                      // Retrieve a single media item by ID
 	// 	r.Put("/{id}", app.UpdateMedia)                   // Update an existing media item

@@ -412,7 +412,7 @@ func (app *application) UploadMedia(w http.ResponseWriter, r *http.Request) {
 	licenseType, LicErr := strconv.Atoi(license_type)
 	// Validate fields
 	if catErr != nil || LicErr != nil || title == "" {
-		app.errorLog.Println("Missing or invalid fields", "title:", title, "Description: ",description,"catid: ",catId, "lic_type",license_type)
+		app.errorLog.Println("Missing or invalid fields", "title:", title, "Description: ", description, "catid: ", catId, "lic_type", license_type)
 		Resp.Error = true
 		Resp.Message = "Missing or invalid fields"
 		app.writeJSON(w, http.StatusBadRequest, Resp)

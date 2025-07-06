@@ -40,56 +40,65 @@ func getAverageBrightness(img image.Image, step int) float64 {
 	return sum / count
 }
 
+// generateWatermarked resizes the input image, determines the appropriate watermark
+// color based on image brightness, tiles the watermark text diagonally at 45°,
+// and saves the result as a PNG (to preserve alpha transparency).
 func generateWatermarked(original image.Image, outputPath string) error {
-	// 1. Resize to max width
-	resized := imaging.Resize(original, WatermarkMaxWidth, 0, imaging.Lanczos)
+    // Step 1: Resize original image to max width (temporary working size)
+    resized := imaging.Resize(original, WatermarkMaxWidth, 0, imaging.Lanczos)
 
-	// 2. Compute brightness
-	brightness := getAverageBrightness(resized, 20)
-	// if image is mostly dark (<0.5) we want a white watermark, else black
-	var r, g, b float64
-	if brightness < 0.5 {
-		r, g, b = 1.0, 1.0, 1.0 // white
-	} else {
-		r, g, b = 0.0, 0.0, 0.0 // black
-	}
+    // Step 2: Compute brightness and choose watermark color
+    brightness := getAverageBrightness(resized, 20)
+    var r, g, b float64
+    if brightness < 0.5 {
+        r, g, b = 1.0, 1.0, 1.0 // white
+    } else {
+        r, g, b = 0.0, 0.0, 0.0 // black
+    }
 
-	// 3. Create drawing context
-	w := resized.Bounds().Dx()
-	h := resized.Bounds().Dy()
-	dc := gg.NewContext(w, h)
-	dc.DrawImage(resized, 0, 0)
+    // Step 3: Create drawing context
+    w := resized.Bounds().Dx()
+    h := resized.Bounds().Dy()
+    dc := gg.NewContext(w, h)
+    dc.DrawImage(resized, 0, 0)
 
-	// 4. Load font
-	if err := dc.LoadFontFace(FontFile, WatermarkFontSize); err != nil {
-		return fmt.Errorf("load font: %w", err)
-	}
+    // Step 4: Load font
+    if err := dc.LoadFontFace(FontFile, WatermarkFontSize); err != nil {
+        return fmt.Errorf("load font: %w", err)
+    }
 
-	// 5. Set watermark style: dynamic color + global opacity
-	dc.SetRGBA(r, g, b, WatermarkOpacity)
+    // Step 5: Set dynamic watermark style
+    dc.SetRGBA(r, g, b, WatermarkOpacity)
 
-	// 6. Calculate the step between repeated marks
-	stepx := int(float64(WatermarkFontSize) * 6)
-	stepy := int(float64(WatermarkFontSize) * 8)
+    // Step 6: Tiled watermark text (rotated 45°)
+    stepX := int(float64(WatermarkFontSize) * 6)
+    stepY := int(float64(WatermarkFontSize) * 8)
+    dc.RotateAbout(gg.Radians(-45), float64(w)/2, float64(h)/2)
 
-	// 7. Rotate the context by 45° around the center
-	dc.RotateAbout(gg.Radians(-45), float64(w)/2, float64(h)/2)
+    for y := -h; y < h*2; y += stepX {
+        for x := -w; x < w*2; x += stepY {
+            dc.DrawStringAnchored(WatermarkText, float64(x), float64(y), 0.5, 0.5)
+        }
+    }
 
-	// 8. Draw tiled text across a larger virtual canvas
-	for y := -h; y < h*2; y += stepx {
-		for x := -w; x < w*2; x += stepy {
-			dc.DrawStringAnchored(WatermarkText, float64(x), float64(y), 0.5, 0.5)
-		}
-	}
+    // Step 7: Downscale to max 720×720
+    watermarked := dc.Image()
+    final := imaging.Fit(watermarked, 720, 720, imaging.Lanczos)
 
-	// 9. Save as PNG (supports transparency)
-	if err := dc.SavePNG(outputPath); err != nil {
-		return fmt.Errorf("saving watermarked image: %w", err)
-	}
-	log.Printf("Generated tiled watermarked image: %s (brightness=%.2f)", outputPath, brightness)
-	return nil
+    // Step 8: Save final image
+    if err := imaging.Save(final, outputPath); err != nil {
+        return fmt.Errorf("saving watermarked image: %w", err)
+    }
+
+    log.Printf("Generated watermarked image: %s (brightness=%.2f, final=%dx%d)", outputPath, brightness, final.Bounds().Dx(), final.Bounds().Dy())
+    return nil
 }
 
+
+// GenerateImageVariants processes a single image:
+// - generates a thumbnail (300x300)
+// - generates a tiled, dynamically-colored watermark
+// Outputs go to "thumbnails" and "watermarked" directories.
 func GenerateImageVariants(originalPath, outputBaseDir, baseName string) error {
 	thumbDir := filepath.Join(outputBaseDir, "thumbnails")
 	wmDir := filepath.Join(outputBaseDir, "watermarked")
@@ -111,7 +120,7 @@ func GenerateImageVariants(originalPath, outputBaseDir, baseName string) error {
 		return err
 	}
 
-	// Generate dynamically-colored, tiled watermark
+	// Generate dynamically-colored, text watermark
 	wmPath := filepath.Join(wmDir, "wm_"+baseName)
 	if err := generateWatermarked(img, wmPath); err != nil {
 		return err
