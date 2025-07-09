@@ -46,9 +46,10 @@ func (app *application) routes() http.Handler {
 		r.Group(func(r chi.Router) {
 			r.Use(app.AuthUser)
 			r.Post("/", app.UploadMedia) // Upload new media
+			r.Get("/{id}", app.DownloadPremiumMedia)                      // Retrieve a single media item by ID
+		
 		})
 		
-		// 	r.Get("/{id}", app.GetMedia)                      // Retrieve a single media item by ID
 		// 	r.Put("/{id}", app.UpdateMedia)                   // Update an existing media item
 		// 	r.Delete("/{id}", app.DeleteMedia)                // Delete a media item
 

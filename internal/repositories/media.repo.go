@@ -64,6 +64,32 @@ func (r *MediaRepo) GetByID(ctx context.Context, id int) (*models.Media, error) 
 	return &m, nil
 }
 
+// GetByMediaUUID retrieves media by media_uuid.
+func (r *MediaRepo) GetByMediaUUID(ctx context.Context, media_uuid string) (*models.Media, error) {
+	query := `
+		SELECT 
+			m.id, m.media_uuid, m.media_title, m.description,
+			m.category_id, m.total_earnings, m.license_type,
+			m.uploader_id, m.uploader_name, m.created_at, m.updated_at,
+			c.id, c.name, c.created_at, c.updated_at
+		FROM medias m
+		LEFT JOIN media_categories c ON m.category_id = c.id
+		WHERE m.media_uuid = $1`
+	var m models.Media
+	var c models.MediaCategory
+	err := r.db.QueryRow(ctx, query, media_uuid).Scan(
+		&m.ID, &m.MediaUUID, &m.MediaTitle, &m.Description,
+		&m.CategoryID, &m.TotalEarnings, &m.LicenseType,
+		&m.UploaderID, &m.UploaderName, &m.CreatedAt, &m.UpdatedAt,
+		&c.ID, &c.Name, &c.CreatedAt, &c.UpdatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+	m.MediaCategory = c
+	return &m, nil
+}
+
 // Update modifies a media record.
 func (r *MediaRepo) Update(ctx context.Context, m *models.Media) error {
 	query := `
@@ -126,6 +152,7 @@ func (r *MediaRepo) GetAll(ctx context.Context) ([]*models.Media, error) {
 	}
 	return medias, nil
 }
+
 func (r *MediaRepo) GetAllByCategoryID(ctx context.Context, id int) ([]*models.Media, error) {
 	query := `
 		SELECT 

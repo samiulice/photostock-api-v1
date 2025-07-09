@@ -195,18 +195,28 @@ func (app *application) Profile(w http.ResponseWriter, r *http.Request) {
 
 	//TODO::
 	//upload history
+	uph, err := app.DB.UploadHistoryRepo.GetAllByUserID(r.Context(), token.ID)
+	if err != nil {
+		app.errorLog.Println("no upload history available for user: ", token.Name)
+	}
 	//download history
+	dwh, err := app.DB.DownloadHistoryRepo.GetAllByUserID(r.Context(), token.ID)
+	if err != nil {
+		app.errorLog.Println("no upload history available for user: ", token.Name)
+	}
 	// Prepare and send response
 	response := struct {
-		Error           bool                    `json:"error"`
-		Message         string                  `json:"message"`
-		User            *models.User            `json:"user"`
-		DownloadHistory *models.DownloadHistory `json:"download_history"`
-		UploadHistory   *models.UploadHistory   `json:"upload_history"`
+		Error           bool                      `json:"error"`
+		Message         string                    `json:"message"`
+		User            *models.User              `json:"user"`
+		DownloadHistory []*models.DownloadHistory `json:"download_history"`
+		UploadHistory   []*models.UploadHistory   `json:"upload_history"`
 	}{
-		Error:   false,
-		Message: "user data fetched successfully",
-		User:    user,
+		Error:           false,
+		Message:         "user data fetched successfully",
+		User:            user,
+		DownloadHistory: dwh,
+		UploadHistory:   uph,
 	}
 
 	app.infoLog.Printf("User %s signed in successfully", user.Username)
@@ -415,6 +425,7 @@ func (app *application) CreateMediaCategory(w http.ResponseWriter, r *http.Reque
 	Resp.Message = "Media category added successfully"
 	app.writeJSON(w, http.StatusOK, Resp)
 }
+
 func (app *application) UpdateMediaCategory(w http.ResponseWriter, r *http.Request) {
 	var category models.MediaCategory
 	err := app.readJSON(w, r, &category)
@@ -436,6 +447,7 @@ func (app *application) UpdateMediaCategory(w http.ResponseWriter, r *http.Reque
 	Resp.Message = "Media category updated successfully"
 	app.writeJSON(w, http.StatusOK, Resp)
 }
+
 func (app *application) DeleteMediaCategory(w http.ResponseWriter, r *http.Request) {
 	param := r.URL.Query().Get("cat_id")
 	cat_id, err := strconv.Atoi(param)
@@ -459,7 +471,6 @@ func (app *application) DeleteMediaCategory(w http.ResponseWriter, r *http.Reque
 }
 
 // Media content management
-
 func (app *application) ListMedia(w http.ResponseWriter, r *http.Request) {
 	category := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("category")))
 	var Resp struct {
@@ -512,6 +523,7 @@ func (app *application) ListMedia(w http.ResponseWriter, r *http.Request) {
 	Resp.Message = "Images retrieved successfully"
 	app.writeJSON(w, http.StatusOK, Resp)
 }
+
 func (app *application) UploadMedia(w http.ResponseWriter, r *http.Request) {
 	var Resp struct {
 		Error   bool   `json:"error"`
@@ -638,4 +650,91 @@ func (app *application) UploadMedia(w http.ResponseWriter, r *http.Request) {
 	Resp.Error = false
 	Resp.Message = "Image uploaded successfully"
 	app.writeJSON(w, http.StatusCreated, Resp)
+}
+
+func (app *application) DownloadPremiumMedia(w http.ResponseWriter, r *http.Request) {
+	var Resp struct {
+		Error   bool   `json:"error"`
+		Message string `json:"message"`
+	}
+	// get media info by media_uuid
+	media_uuid := r.URL.Query().Get("id")
+	if strings.TrimSpace(media_uuid) == "" {
+		app.errorLog.Println("No media id provided")
+		Resp.Error = true
+		Resp.Message = "Invalid or missing media id"
+		app.writeJSON(w, http.StatusBadRequest, Resp)
+		return
+	}
+
+	m, err := app.DB.MediaRepo.GetByMediaUUID(r.Context(), media_uuid)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			app.errorLog.Println("Invalid media_uuid")
+			Resp.Error = true
+			Resp.Message = "wrong media id"
+			app.writeJSON(w, http.StatusBadRequest, Resp)
+			return
+		}
+		app.errorLog.Println("Unable to get media info")
+		Resp.Error = true
+		Resp.Message = "Internal Server Error: Unable to media info! Try again"
+		app.writeJSON(w, http.StatusBadRequest, Resp)
+		return
+	}
+
+	if m.LicenseType == 1 {
+		app.errorLog.Println("Free image! Redirect to image download page")
+		Resp.Error = false
+		Resp.Message = models.APIEndPoint + path.Join("images", "free", media_uuid)
+		app.writeJSON(w, http.StatusBadRequest, Resp)
+		return
+	}
+	token, ok := app.GetUserTokenFromContext(r.Context())
+	if !ok {
+		app.errorLog.Println("Could not get user token from context")
+		Resp.Error = true
+		Resp.Message = "Access Denied: Could not get user token from context"
+		app.writeJSON(w, http.StatusBadRequest, Resp)
+		return
+	}
+
+	// get user by id
+	user, err := app.DB.UserRepo.GetByID(r.Context(), token.ID)
+	if err != nil {
+		app.errorLog.Println("Could not get user data from database")
+		Resp.Error = true
+		Resp.Message = "Access Denied: Could not get user data from database"
+		app.writeJSON(w, http.StatusBadRequest, Resp)
+		return
+	}
+
+	// check users subscription
+	if user.SubscriptionPlan.Status {
+		app.errorLog.Println("No subscription plan for this user")
+		Resp.Error = true
+		Resp.Message = "no plan"
+		app.writeJSON(w, http.StatusBadRequest, Resp)
+		return
+	}
+
+	// check users download limit
+	expiredDate, err := time.Parse(user.SubscriptionPlan.TimeLimit, "02-01-2006")
+	if err != nil {
+		app.errorLog.Println("Could not parse the expiry date")
+		Resp.Error = true
+		Resp.Message = "Internal Server Error: Could not parse the expiry date"
+		app.writeJSON(w, http.StatusBadRequest, Resp)
+		return
+	}
+	notExpired := time.Now().Compare(expiredDate) <= 0
+	if user.SubscriptionPlan.DownloadLimit > 0 && notExpired {
+		app.errorLog.Println("No subscription plan for this user")
+		Resp.Error = true
+		Resp.Message = "no plan"
+		app.writeJSON(w, http.StatusBadRequest, Resp)
+		return
+	}
+
+	http.ServeFile(w, r, path.Join("secure", "images", "premium", media_uuid))
 }

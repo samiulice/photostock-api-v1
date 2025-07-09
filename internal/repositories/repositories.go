@@ -11,9 +11,11 @@ type DBRepository struct {
 	UserRepo             *UserRepo
 	// SubscriptionRepo     *SubscriptionRepo
 	MediaRepo            *MediaRepo
-	// DownloadHistoryRepo  *DownloadHistoryRepo
+	DownloadHistoryRepo  *DownloadHistoryRepo
+	UploadHistoryRepo  *UploadHistoryRepo
 }
 
+// NewDBRepository initializes all repositories with a shared connection pool
 // NewDBRepository initializes all repositories with a shared connection pool
 func NewDBRepository(db *pgxpool.Pool) *DBRepository {
 	return &DBRepository{
@@ -22,6 +24,7 @@ func NewDBRepository(db *pgxpool.Pool) *DBRepository {
 		UserRepo:             NewUserRepo(db),
 		// SubscriptionRepo:     NewSubscriptionRepo(db),
 		MediaRepo:            NewMediaRepo(db),
-		// DownloadHistoryRepo:  NewDownloadHistoryRepo(db),
+		DownloadHistoryRepo:  NewDownloadHistoryRepo(db),
+		UploadHistoryRepo:  NewUploadHistoryRepo(db),
 	}
 }

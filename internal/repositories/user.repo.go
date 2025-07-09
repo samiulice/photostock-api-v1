@@ -186,6 +186,7 @@ func (r *UserRepo) GetByUsername(ctx context.Context, username string) (*models.
 
 	return user, nil
 }
+
 func (r *UserRepo) GetByEmail(ctx context.Context, email string) (*models.User, error) {
 	query := `
 		SELECT 
