@@ -9,7 +9,7 @@ type DBRepository struct {
 	SubscriptionTypeRepo *SubscriptionTypeRepo
 	MediaCategoryRepo    *MediaCategoryRepo
 	UserRepo             *UserRepo
-	// SubscriptionRepo     *SubscriptionRepo
+	SubscriptionRepo     *SubscriptionRepo
 	MediaRepo            *MediaRepo
 	DownloadHistoryRepo  *DownloadHistoryRepo
 	UploadHistoryRepo  *UploadHistoryRepo
@@ -22,7 +22,7 @@ func NewDBRepository(db *pgxpool.Pool) *DBRepository {
 		SubscriptionTypeRepo: NewSubscriptionPlanRepo(db),
 		MediaCategoryRepo:    NewMediaCategoryRepo(db),
 		UserRepo:             NewUserRepo(db),
-		// SubscriptionRepo:     NewSubscriptionRepo(db),
+		SubscriptionRepo:     NewSubscriptionRepo(db),
 		MediaRepo:            NewMediaRepo(db),
 		DownloadHistoryRepo:  NewDownloadHistoryRepo(db),
 		UploadHistoryRepo:  NewUploadHistoryRepo(db),

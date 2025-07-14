@@ -11,7 +11,7 @@ CREATE TABLE subscription_plans (
     terms TEXT DEFAULT '',
     status BOOLEAN DEFAULT TRUE,
     download_limit INTEGER DEFAULT 0,
-    time_limit INTERVAL DEFAULT INTERVAL '0',
+    expires_at INTEGER DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -49,7 +49,6 @@ CREATE TABLE subscriptions (
     id SERIAL PRIMARY KEY,
     user_id INTEGER NOT NULL,
     subscription_plans_id INTEGER NOT NULL,
-    payment_status VARCHAR(20) DEFAULT '',
     payment_amount NUMERIC(10, 2) DEFAULT 0,
     payment_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     total_downloads INTEGER DEFAULT 0,

@@ -193,7 +193,11 @@ func (app *application) Profile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//TODO::
+	//Subscriptions History
+	sbh, err := app.DB.SubscriptionRepo.GetByUserID(r.Context(), user.ID)
+	if err != nil {
+		app.errorLog.Println("no subscription history available for user: ", token.Name)
+	}
 	//upload history
 	uph, err := app.DB.UploadHistoryRepo.GetAllByUserID(r.Context(), token.ID)
 	if err != nil {
@@ -206,17 +210,19 @@ func (app *application) Profile(w http.ResponseWriter, r *http.Request) {
 	}
 	// Prepare and send response
 	response := struct {
-		Error           bool                      `json:"error"`
-		Message         string                    `json:"message"`
-		User            *models.User              `json:"user"`
-		DownloadHistory []*models.DownloadHistory `json:"download_history"`
-		UploadHistory   []*models.UploadHistory   `json:"upload_history"`
+		Error                bool                      `json:"error"`
+		Message              string                    `json:"message"`
+		User                 *models.User              `json:"user"`
+		SubscriptionsHistory []*models.Subscription    `json:"subscription_history"`
+		DownloadHistory      []*models.DownloadHistory `json:"download_history"`
+		UploadHistory        []*models.UploadHistory   `json:"upload_history"`
 	}{
-		Error:           false,
-		Message:         "user data fetched successfully",
-		User:            user,
-		DownloadHistory: dwh,
-		UploadHistory:   uph,
+		Error:                false,
+		Message:              "user data fetched successfully",
+		User:                 user,
+		SubscriptionsHistory: sbh,
+		DownloadHistory:      dwh,
+		UploadHistory:        uph,
 	}
 
 	app.infoLog.Printf("User %s signed in successfully", user.Username)
@@ -318,12 +324,13 @@ func (app *application) GetMediaCategories(w http.ResponseWriter, r *http.Reques
 		Message         string                  `json:"message"`
 		MediaCategories []*models.MediaCategory `json:"media_categories"`
 	}
-	allCategory := models.MediaCategory{
-		ID:   0,
-		Name: "All",
-	}
+
 	if r.URL.Query().Get("isnav") == "true" {
-		Resp.MediaCategories = append(Resp.MediaCategories, &allCategory)
+		Resp.MediaCategories = append(Resp.MediaCategories,
+			&models.MediaCategory{
+				ID:   0,
+				Name: "All",
+			})
 	}
 	Resp.Error = false
 	Resp.MediaCategories = append(Resp.MediaCategories, categories...)
@@ -527,9 +534,9 @@ func (app *application) ListMedia(w http.ResponseWriter, r *http.Request) {
 func (app *application) FetchMediaDetails(w http.ResponseWriter, r *http.Request) {
 	id := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("id")))
 	var Resp struct {
-		Error   bool            `json:"error"`
-		Message string          `json:"message"`
-		Media *models.Media `json:"media"`
+		Error   bool          `json:"error"`
+		Message string        `json:"message"`
+		Media   *models.Media `json:"media"`
 	}
 	mediaID, err := strconv.Atoi(id)
 	if err != nil || mediaID == 0 {
@@ -560,9 +567,11 @@ func (app *application) FetchMediaDetails(w http.ResponseWriter, r *http.Request
 		media.MediaURL = models.APIEndPoint + path.Join("images", "public", "thumbnails", "thumb_"+media.MediaUUID)
 		media.MediaUUID = ""
 		Resp.Media = media
-		app.infoLog.Println(media)
 	} else {
-		app.errorLog.Println(media)
+		Resp.Error = true
+		Resp.Message = "Images data not found"
+		app.writeJSON(w, http.StatusOK, Resp)
+		return
 	}
 
 	Resp.Error = false
@@ -655,7 +664,7 @@ func (app *application) UploadMedia(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//save watermarked image
-	outputBaseDir := filepath.Join(".", "assets", "images")
+	outputBaseDir := filepath.Join(".", "assets", "images", "public")
 	//save thumbnail
 	err = utils.GenerateImageVariants(dstPath, outputBaseDir, filename)
 	if err != nil {
@@ -685,10 +694,22 @@ func (app *application) UploadMedia(w http.ResponseWriter, r *http.Request) {
 		UploaderID:   token.ID,
 		UploaderName: token.Name,
 	}
-	app.infoLog.Println(image.UploaderID, token)
 	err = app.DB.MediaRepo.Create(r.Context(), image)
 	if err != nil {
 		app.errorLog.Println("Could not save image metadata", err.Error())
+		Resp.Error = true
+		Resp.Message = "Could not save image metadata"
+		app.writeJSON(w, http.StatusInternalServerError, Resp)
+		return
+	}
+	h := &models.UploadHistory{
+		MediaUUID:  filename,
+		UserID:     token.ID,
+		UploadedAt: time.Now(),
+	}
+	err = app.DB.UploadHistoryRepo.Create(r.Context(), h)
+	if err != nil {
+		app.errorLog.Println("Could not save upload history", err.Error())
 		Resp.Error = true
 		Resp.Message = "Could not save image metadata"
 		app.writeJSON(w, http.StatusInternalServerError, Resp)
@@ -700,15 +721,16 @@ func (app *application) UploadMedia(w http.ResponseWriter, r *http.Request) {
 	app.writeJSON(w, http.StatusCreated, Resp)
 }
 
-func (app *application) DownloadPremiumMedia(w http.ResponseWriter, r *http.Request) {
+func (app *application) ServeMedia(w http.ResponseWriter, r *http.Request) {
 	var Resp struct {
 		Error   bool   `json:"error"`
 		Message string `json:"message"`
 	}
 
 	// 1. Validate media UUID
-	mediaUUID := strings.TrimSpace(r.URL.Query().Get("id"))
-	if mediaUUID == "" {
+	id, err := strconv.Atoi(strings.TrimSpace(r.URL.Query().Get("id")))
+
+	if err != nil {
 		app.errorLog.Println("No media id provided")
 		Resp.Error = true
 		Resp.Message = "Invalid or missing media id"
@@ -717,10 +739,10 @@ func (app *application) DownloadPremiumMedia(w http.ResponseWriter, r *http.Requ
 	}
 
 	// 2. Get media info from DB
-	media, err := app.DB.MediaRepo.GetByMediaUUID(r.Context(), mediaUUID)
+	media, err := app.DB.MediaRepo.GetByID(r.Context(), id)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			app.errorLog.Printf("Invalid media_uuid: %s", mediaUUID)
+			app.errorLog.Printf("Invalid media_uuid: %d", id)
 			Resp.Error = true
 			Resp.Message = "Invalid media ID"
 			app.writeJSON(w, http.StatusBadRequest, Resp)
@@ -734,10 +756,10 @@ func (app *application) DownloadPremiumMedia(w http.ResponseWriter, r *http.Requ
 	}
 
 	// 3. Redirect free images
-	if media.LicenseType == 1 {
+	if media.LicenseType == 0 {
 		app.infoLog.Println("Redirecting to free image download")
 		Resp.Error = false
-		Resp.Message = models.APIEndPoint + path.Join("images", "free", mediaUUID)
+		Resp.Message = models.APIEndPoint + path.Join("images", "free", media.MediaUUID)
 		app.writeJSON(w, http.StatusOK, Resp)
 		return
 	}
@@ -763,8 +785,8 @@ func (app *application) DownloadPremiumMedia(w http.ResponseWriter, r *http.Requ
 	}
 
 	// 6. Validate subscription
-	plan := user.SubscriptionPlan
-	if plan == nil || !plan.Status {
+	plan := user.CurrentPlan
+	if plan == nil || plan.PlanDetails == nil || !plan.Status {
 		app.errorLog.Printf("User %d has no active subscription", user.ID)
 		Resp.Error = true
 		Resp.Message = "You must have an active subscription"
@@ -773,14 +795,8 @@ func (app *application) DownloadPremiumMedia(w http.ResponseWriter, r *http.Requ
 	}
 
 	// 7. Check if subscription expired
-	expiry, err := time.Parse("02-01-2006", plan.ExpiresAt)
-	if err != nil {
-		app.errorLog.Println("Error parsing expiry date:", err)
-		Resp.Error = true
-		Resp.Message = "Subscription error: could not validate expiration"
-		app.writeJSON(w, http.StatusInternalServerError, Resp)
-		return
-	}
+	expiry := plan.PaymentTime.AddDate(0, 0, plan.PlanDetails.ExpiresAt)
+
 	if time.Now().After(expiry) {
 		app.errorLog.Printf("Subscription expired for user %d", user.ID)
 		Resp.Error = true
@@ -790,7 +806,7 @@ func (app *application) DownloadPremiumMedia(w http.ResponseWriter, r *http.Requ
 	}
 
 	// 8. Check download limit
-	if plan.DownloadLimit <= 0 {
+	if plan.PlanDetails.DownloadLimit <= 0 {
 		app.errorLog.Printf("User %d has reached download limit", user.ID)
 		Resp.Error = true
 		Resp.Message = "Download limit reached. Please upgrade your plan."
@@ -800,10 +816,10 @@ func (app *application) DownloadPremiumMedia(w http.ResponseWriter, r *http.Requ
 
 	// 9. Serve the file
 	imageType := "premium"
-	if(media.LicenseType == 0){
+	if media.LicenseType == 0 {
 		imageType = "free"
 	}
-	mediaPath := path.Join("secure", "images", imageType, mediaUUID)
+	mediaPath := path.Join("assets", "images", imageType, media.MediaUUID)
 	if _, err := os.Stat(mediaPath); err != nil {
 		app.errorLog.Printf("File not found: %s", mediaPath)
 		Resp.Error = true
@@ -812,7 +828,7 @@ func (app *application) DownloadPremiumMedia(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	app.infoLog.Printf("Serving premium media %s to user %d", mediaUUID, user.ID)
+	app.infoLog.Printf("Serving premium media %s to user %d", media.MediaUUID, user.ID)
 	http.ServeFile(w, r, mediaPath)
 
 	// 10. Decrement download limit (persist in DB)
@@ -825,9 +841,139 @@ func (app *application) DownloadPremiumMedia(w http.ResponseWriter, r *http.Requ
 	}
 
 	// 11. Optionally: Log the download event (in database or analytics system)
-	// err = app.DB.MediaRepo.LogDownload(r.Context(), user.ID, media.ID)
-	// if err != nil {
-	// 	app.errorLog.Printf("Failed to log media download for user %d: %v", user.ID, err)
-	// }
+	h := models.DownloadHistory{
+		MediaUUID:    media.MediaUUID,
+		UserID:       user.ID,
+		DownloadedAt: time.Now(),
+	}
+	err = app.DB.DownloadHistoryRepo.Create(r.Context(), &h)
+	if err != nil {
+		app.errorLog.Printf("Failed to log media download for user %d: %v", user.ID, err)
+	}
 }
 
+
+// --- Subscription Plan Management ---
+
+// CreatePlan creates a new subscription Plan Type to the database
+func (app *application) CreatePlan(w http.ResponseWriter, r *http.Request) {
+	var Resp struct {
+		Error   bool   `json:"error"`
+		Message string `json:"message"`
+	}
+	var plan models.SubscriptionPlan
+	err := app.readJSON(w, r, &plan)
+	if err != nil {
+		app.badRequest(w, err)
+		return
+	}
+	err = app.DB.SubscriptionTypeRepo.Create(r.Context(), &plan)
+	if err != nil {
+		app.badRequest(w, err)
+		return
+	}
+
+	Resp.Error = false
+	Resp.Message = "Media category added successfully"
+	app.writeJSON(w, http.StatusOK, Resp)
+}
+
+func (app *application) UpdatePlan(w http.ResponseWriter, r *http.Request) {
+	var Resp struct {
+		Error   bool   `json:"error"`
+		Message string `json:"message"`
+	}
+	var plan models.SubscriptionPlan
+	err := app.readJSON(w, r, &plan)
+	if err != nil {
+		app.badRequest(w, err)
+		return
+	}
+	err = app.DB.SubscriptionTypeRepo.Update(r.Context(), &plan)
+	if err != nil {
+		app.badRequest(w, err)
+		return
+	}
+
+	Resp.Error = false
+	Resp.Message = "Media category added successfully"
+	app.writeJSON(w, http.StatusOK, Resp)
+}
+func (app *application) PurchasePlan(w http.ResponseWriter, r *http.Request) {
+	var Resp struct {
+		Error   bool   `json:"error"`
+		Message string `json:"message"`
+	}
+
+	planID, err := strconv.Atoi(strings.TrimSpace(r.URL.Query().Get("plan_id")))
+	if err != nil {
+		app.errorLog.Println("Invalid plan id: ", err)
+		Resp.Error = true
+		Resp.Message = "Invalid plan id"
+		app.writeJSON(w, http.StatusBadRequest, Resp)
+		return
+	}
+
+	token, ok := app.GetUserTokenFromContext(r.Context())
+	if !ok {
+		app.errorLog.Println("Invalid user token: ", err)
+		Resp.Error = true
+		Resp.Message = "Invalid user token"
+		app.writeJSON(w, http.StatusForbidden, Resp)
+		return
+	}
+
+	user, err := app.DB.UserRepo.GetByID(r.Context(), token.ID)
+
+	if user.CurrentPlan != nil {
+		expiry := user.CurrentPlan.PaymentTime.AddDate(0, 0, user.CurrentPlan.PlanDetails.ExpiresAt)
+
+		if !time.Now().After(expiry) {
+			app.errorLog.Printf("Purchased Subscription plan exist for user %d", user.ID)
+			Resp.Error = true
+			Resp.Message = "You already have an active subscription plan. Please try again after your current plan expires."
+			app.writeJSON(w, http.StatusForbidden, Resp)
+			return
+		}
+
+		if user.CurrentPlan.PlanDetails.DownloadLimit <= 0 {
+			app.errorLog.Printf("Purchased Subscription plan exist for user %d", user.ID)
+			Resp.Error = true
+			Resp.Message = "You already have an active subscription plan. Please try again after your current plan expires."
+			app.writeJSON(w, http.StatusForbidden, Resp)
+			return
+		}
+	}
+
+	sub:=&models.Subscription{
+		UserID:             user.ID,
+		SubscriptionPlanID: planID,
+		PaymentStatus:      "completed",
+		PaymentAmount:      10000,
+		PaymentTime:        time.Now(),
+		TotalDownloads:     0,
+		Status:             true,
+	}
+	err = app.DB.SubscriptionRepo.Create(r.Context(), sub)
+	if err != nil {
+		app.errorLog.Println(err)
+		Resp.Error = true
+		Resp.Message = "Internal Server Error: Unable to complete purchase"
+		app.writeJSON(w, http.StatusInternalServerError, Resp)
+		return
+	}
+
+	err= app.DB.UserRepo.UpdateSubscriptionPlanByUserID(r.Context(),  sub.ID, user.ID)
+	if err != nil {
+		app.errorLog.Println(err)
+		Resp.Error = true
+		Resp.Message = "Internal Server Error: Unable to complete purchase"
+		app.writeJSON(w, http.StatusInternalServerError, Resp)
+		return
+	}
+
+	Resp.Error = true
+	Resp.Message = "Purchase completed"
+	app.writeJSON(w, http.StatusOK, Resp)
+	return
+}

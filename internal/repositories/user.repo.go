@@ -49,26 +49,63 @@ func (r *UserRepo) GetByID(ctx context.Context, id int) (*models.User, error) {
 			u.role,
 			u.total_earnings,
 			u.total_withdraw,
+			u.total_expenses,
 			u.address,
 			u.subscription_id,
 			u.created_at,
 			u.updated_at,
-
+			
+			s.id,
+			s.user_id,
+			s.subscription_plans_id,
+			s.payment_status,
+			s.payment_amount,
+			s.payment_time,
+			s.total_downloads,
+			s.status,
+			s.created_at,
+			s.updated_at,
+			
 			sp.id,
 			sp.title,
 			sp.terms,
+			sp.status,
 			sp.download_limit,
 			sp.time_limit,
-			sp.status,
 			sp.created_at,
 			sp.updated_at
 		FROM users u
-		LEFT JOIN subscription_plans sp ON u.subscription_id = sp.id
+		LEFT JOIN subscriptions s ON u.subscription_id = s.id
+		LEFT JOIN subscription_plans sp ON s.subscription_plans_id = sp.id
 		WHERE u.id = $1;
 	`
 
-	user := &models.User{}
-	sub := &models.SubscriptionPlan{}
+	var (
+		user models.User
+		sub  models.Subscription
+		plan models.SubscriptionPlan
+
+		// Nullable fields
+		subID             sql.NullInt64
+		subUserID         sql.NullInt64
+		subPlanID         sql.NullInt64
+		subPaymentStatus  sql.NullString
+		subPaymentAmount  sql.NullFloat64
+		subPaymentTime    sql.NullTime
+		subTotalDownloads sql.NullInt64
+		subStatus         sql.NullBool
+		subCreatedAt      sql.NullTime
+		subUpdatedAt      sql.NullTime
+
+		planID        sql.NullInt64
+		planTitle     sql.NullString
+		planTerms     sql.NullString
+		planStatus    sql.NullBool
+		planDL        sql.NullInt64
+		planExpiresAt sql.NullInt64
+		planCreatedAt sql.NullTime
+		planUpdatedAt sql.NullTime
+	)
 
 	err := r.db.QueryRow(ctx, query, id).Scan(
 		&user.ID,
@@ -82,35 +119,72 @@ func (r *UserRepo) GetByID(ctx context.Context, id int) (*models.User, error) {
 		&user.Role,
 		&user.TotalEarnings,
 		&user.TotalWithdraw,
+		&user.TotalExpenses,
 		&user.Address,
 		&user.SubscriptionID,
 		&user.CreatedAt,
 		&user.UpdatedAt,
 
-		&sub.ID,
-		&sub.Title,
-		&sub.Terms,
-		&sub.DownloadLimit,
-		&sub.ExpiresAt,
-		&sub.Status,
-		&sub.CreatedAt,
-		&sub.UpdatedAt,
+		&subID,
+		&subUserID,
+		&subPlanID,
+		&subPaymentStatus,
+		&subPaymentAmount,
+		&subPaymentTime,
+		&subTotalDownloads,
+		&subStatus,
+		&subCreatedAt,
+		&subUpdatedAt,
+
+		&planID,
+		&planTitle,
+		&planTerms,
+		&planStatus,
+		&planDL,
+		&planExpiresAt,
+		&planCreatedAt,
+		&planUpdatedAt,
 	)
 
 	if err != nil {
 		return nil, err
 	}
 
-	// If no subscription (sub.ID is 0), set to nil
-	if user.SubscriptionID == nil {
-		user.SubscriptionPlan = nil
-	} else {
-		user.SubscriptionPlan = sub
+	// Build subscription if exists
+	if subID.Valid {
+		sub = models.Subscription{
+			ID:                 int(subID.Int64),
+			UserID:             int(subUserID.Int64),
+			SubscriptionPlanID: int(subPlanID.Int64),
+			PaymentStatus:      subPaymentStatus.String,
+			PaymentAmount:      subPaymentAmount.Float64,
+			PaymentTime:        subPaymentTime.Time,
+			TotalDownloads:     int(subTotalDownloads.Int64),
+			Status:             subStatus.Bool,
+			CreatedAt:          subCreatedAt.Time,
+			UpdatedAt:          subUpdatedAt.Time,
+		}
+
+		// Build subscription plan if exists
+		if planID.Valid {
+			plan = models.SubscriptionPlan{
+				ID:            int(planID.Int64),
+				Title:         planTitle.String,
+				Terms:         planTerms.String,
+				Status:        planStatus.Bool,
+				DownloadLimit: int(planDL.Int64),
+				ExpiresAt:     plan.ExpiresAt,
+				CreatedAt:     planCreatedAt.Time,
+				UpdatedAt:     planUpdatedAt.Time,
+			}
+			sub.PlanDetails = &plan
+		}
+
+		user.CurrentPlan = &sub
 	}
 
-	return user, nil
+	return &user, nil
 }
-
 func (r *UserRepo) GetByUsername(ctx context.Context, username string) (*models.User, error) {
 	query := `
 		SELECT 
@@ -125,26 +199,63 @@ func (r *UserRepo) GetByUsername(ctx context.Context, username string) (*models.
 			u.role,
 			u.total_earnings,
 			u.total_withdraw,
+			u.total_expenses,
 			u.address,
 			u.subscription_id,
 			u.created_at,
 			u.updated_at,
-
+			
+			s.id,
+			s.user_id,
+			s.subscription_plans_id,
+			s.payment_status,
+			s.payment_amount,
+			s.payment_time,
+			s.total_downloads,
+			s.status,
+			s.created_at,
+			s.updated_at,
+			
 			sp.id,
 			sp.title,
 			sp.terms,
+			sp.status,
 			sp.download_limit,
 			sp.time_limit,
-			sp.status,
 			sp.created_at,
 			sp.updated_at
 		FROM users u
-		LEFT JOIN subscription_plans sp ON u.subscription_id = sp.id
-		WHERE u.usename = $1;
+		LEFT JOIN subscriptions s ON u.subscription_id = s.id
+		LEFT JOIN subscription_plans sp ON s.subscription_plans_id = sp.id
+		WHERE u.username = $1;
 	`
 
-	user := &models.User{}
-	sub := &models.SubscriptionPlan{}
+	var (
+		user models.User
+		sub  models.Subscription
+		plan models.SubscriptionPlan
+
+		// Nullable fields
+		subID             sql.NullInt64
+		subUserID         sql.NullInt64
+		subPlanID         sql.NullInt64
+		subPaymentStatus  sql.NullString
+		subPaymentAmount  sql.NullFloat64
+		subPaymentTime    sql.NullTime
+		subTotalDownloads sql.NullInt64
+		subStatus         sql.NullBool
+		subCreatedAt      sql.NullTime
+		subUpdatedAt      sql.NullTime
+
+		planID        sql.NullInt64
+		planTitle     sql.NullString
+		planTerms     sql.NullString
+		planStatus    sql.NullBool
+		planDL        sql.NullInt64
+		planExpiresAt sql.NullInt64
+		planCreatedAt sql.NullTime
+		planUpdatedAt sql.NullTime
+	)
 
 	err := r.db.QueryRow(ctx, query, username).Scan(
 		&user.ID,
@@ -158,33 +269,71 @@ func (r *UserRepo) GetByUsername(ctx context.Context, username string) (*models.
 		&user.Role,
 		&user.TotalEarnings,
 		&user.TotalWithdraw,
+		&user.TotalExpenses,
 		&user.Address,
 		&user.SubscriptionID,
 		&user.CreatedAt,
 		&user.UpdatedAt,
 
-		&sub.ID,
-		&sub.Title,
-		&sub.Terms,
-		&sub.DownloadLimit,
-		&sub.ExpiresAt,
-		&sub.Status,
-		&sub.CreatedAt,
-		&sub.UpdatedAt,
+		&subID,
+		&subUserID,
+		&subPlanID,
+		&subPaymentStatus,
+		&subPaymentAmount,
+		&subPaymentTime,
+		&subTotalDownloads,
+		&subStatus,
+		&subCreatedAt,
+		&subUpdatedAt,
+
+		&planID,
+		&planTitle,
+		&planTerms,
+		&planStatus,
+		&planDL,
+		&planExpiresAt,
+		&planCreatedAt,
+		&planUpdatedAt,
 	)
 
 	if err != nil {
 		return nil, err
 	}
 
-	// If no subscription (sub.ID is 0), set to nil
-	if user.SubscriptionID == nil {
-		user.SubscriptionPlan = nil
-	} else {
-		user.SubscriptionPlan = sub
+	// Build subscription if exists
+	if subID.Valid {
+		sub = models.Subscription{
+			ID:                 int(subID.Int64),
+			UserID:             int(subUserID.Int64),
+			SubscriptionPlanID: int(subPlanID.Int64),
+			PaymentStatus:      subPaymentStatus.String,
+			PaymentAmount:      subPaymentAmount.Float64,
+			PaymentTime:        subPaymentTime.Time,
+			TotalDownloads:     int(subTotalDownloads.Int64),
+			Status:             subStatus.Bool,
+			CreatedAt:          subCreatedAt.Time,
+			UpdatedAt:          subUpdatedAt.Time,
+		}
+
+		// Build subscription plan if exists
+		if planID.Valid {
+			plan = models.SubscriptionPlan{
+				ID:            int(planID.Int64),
+				Title:         planTitle.String,
+				Terms:         planTerms.String,
+				Status:        planStatus.Bool,
+				DownloadLimit: int(planDL.Int64),
+				ExpiresAt:     plan.ExpiresAt,
+				CreatedAt:     planCreatedAt.Time,
+				UpdatedAt:     planUpdatedAt.Time,
+			}
+			sub.PlanDetails = &plan
+		}
+
+		user.CurrentPlan = &sub
 	}
 
-	return user, nil
+	return &user, nil
 }
 
 func (r *UserRepo) GetByEmail(ctx context.Context, email string) (*models.User, error) {
@@ -201,37 +350,63 @@ func (r *UserRepo) GetByEmail(ctx context.Context, email string) (*models.User, 
 			u.role,
 			u.total_earnings,
 			u.total_withdraw,
+			u.total_expenses,
 			u.address,
 			u.subscription_id,
 			u.created_at,
 			u.updated_at,
-
+			
+			s.id,
+			s.user_id,
+			s.subscription_plans_id,
+			s.payment_status,
+			s.payment_amount,
+			s.payment_time,
+			s.total_downloads,
+			s.status,
+			s.created_at,
+			s.updated_at,
+			
 			sp.id,
 			sp.title,
 			sp.terms,
+			sp.status,
 			sp.download_limit,
 			sp.time_limit,
-			sp.status,
 			sp.created_at,
 			sp.updated_at
 		FROM users u
-		LEFT JOIN subscription_plans sp ON u.subscription_id = sp.id
+		LEFT JOIN subscriptions s ON u.subscription_id = s.id AND s.status = true
+		LEFT JOIN subscription_plans sp ON s.subscription_plans_id = sp.id
 		WHERE u.email = $1;
 	`
 
-	// Nullable fields
 	var (
-		subID        sql.NullInt64
-		subTitle     sql.NullString
-		subTerms     sql.NullString
-		subDL        sql.NullInt64
-		subTimeLimit sql.NullString
-		subStatus    sql.NullBool
-		subCreatedAt sql.NullTime
-		subUpdatedAt sql.NullTime
-	)
+		user models.User
+		sub  models.Subscription
+		plan models.SubscriptionPlan
 
-	user := &models.User{}
+		// Nullable fields
+		subID             sql.NullInt64
+		subUserID         sql.NullInt64
+		subPlanID         sql.NullInt64
+		subPaymentStatus  sql.NullString
+		subPaymentAmount  sql.NullFloat64
+		subPaymentTime    sql.NullTime
+		subTotalDownloads sql.NullInt64
+		subStatus         sql.NullBool
+		subCreatedAt      sql.NullTime
+		subUpdatedAt      sql.NullTime
+
+		planID        sql.NullInt64
+		planTitle     sql.NullString
+		planTerms     sql.NullString
+		planStatus    sql.NullBool
+		planDL        sql.NullInt64
+		planExpiresAt sql.NullInt64
+		planCreatedAt sql.NullTime
+		planUpdatedAt sql.NullTime
+	)
 
 	err := r.db.QueryRow(ctx, query, email).Scan(
 		&user.ID,
@@ -245,41 +420,71 @@ func (r *UserRepo) GetByEmail(ctx context.Context, email string) (*models.User, 
 		&user.Role,
 		&user.TotalEarnings,
 		&user.TotalWithdraw,
+		&user.TotalExpenses,
 		&user.Address,
 		&user.SubscriptionID,
 		&user.CreatedAt,
 		&user.UpdatedAt,
 
 		&subID,
-		&subTitle,
-		&subTerms,
-		&subDL,
-		&subTimeLimit,
+		&subUserID,
+		&subPlanID,
+		&subPaymentStatus,
+		&subPaymentAmount,
+		&subPaymentTime,
+		&subTotalDownloads,
 		&subStatus,
 		&subCreatedAt,
 		&subUpdatedAt,
+
+		&planID,
+		&planTitle,
+		&planTerms,
+		&planStatus,
+		&planDL,
+		&planExpiresAt,
+		&planCreatedAt,
+		&planUpdatedAt,
 	)
 
 	if err != nil {
 		return nil, err
 	}
 
+	// Build subscription if exists
 	if subID.Valid {
-		user.SubscriptionPlan = &models.SubscriptionPlan{
-			ID:            int(subID.Int64),
-			Title:         subTitle.String,
-			Terms:         subTerms.String,
-			DownloadLimit: int(subDL.Int64),
-			ExpiresAt:     subTimeLimit.String,
-			Status:        subStatus.Bool,
-			CreatedAt:     subCreatedAt.Time,
-			UpdatedAt:     subUpdatedAt.Time,
+		sub = models.Subscription{
+			ID:                 int(subID.Int64),
+			UserID:             int(subUserID.Int64),
+			SubscriptionPlanID: int(subPlanID.Int64),
+			PaymentStatus:      subPaymentStatus.String,
+			PaymentAmount:      subPaymentAmount.Float64,
+			PaymentTime:        subPaymentTime.Time,
+			TotalDownloads:     int(subTotalDownloads.Int64),
+			Status:             subStatus.Bool,
+			CreatedAt:          subCreatedAt.Time,
+			UpdatedAt:          subUpdatedAt.Time,
 		}
-	} else {
-		user.SubscriptionPlan = nil
+
+		// Build subscription plan if exists
+		if planID.Valid {
+			plan = models.SubscriptionPlan{
+				ID:            int(planID.Int64),
+				Title:         planTitle.String,
+				Terms:         planTerms.String,
+				Status:        planStatus.Bool,
+				DownloadLimit: int(planDL.Int64),
+				ExpiresAt:     plan.ExpiresAt,
+				CreatedAt:     planCreatedAt.Time,
+				UpdatedAt:     planUpdatedAt.Time,
+			}
+			sub.PlanDetails = &plan
+		}
+
+		user.CurrentPlan = &sub
 	}
 
-	return user, nil
+	return &user, nil
 }
 
 func (r *UserRepo) Update(ctx context.Context, user *models.User) error {
@@ -287,13 +492,25 @@ func (r *UserRepo) Update(ctx context.Context, user *models.User) error {
 	UPDATE users
 	SET 
 		username = $2, password = $3, name = $4, avatar_url = $5, status = $6, 
-		role = $7, email = $8, mobile = $9, total_earnings = $10, total_withdraw = $11, total_expenses = $12, address = $13, 
-		subscription_id = $14, updated_at = $15
+		role = $7, email = $8, mobile = $9, total_earnings = $10, total_withdraw = $11, 
+		total_expenses = $12, address = $13, subscription_id = $14, updated_at = $15
 	WHERE id = $1`
 	_, err := r.db.Exec(ctx, query,
 		user.ID, user.Username, user.Password, user.Name, user.AvatarURL, user.Status,
-		user.Role, user.Email, user.Mobile, user.TotalEarnings, user.TotalWithdraw, user.TotalExpenses, user.Address,
-		user.SubscriptionID, time.Now(),
+		user.Role, user.Email, user.Mobile, user.TotalEarnings, user.TotalWithdraw,
+		user.TotalExpenses, user.Address, user.SubscriptionID, time.Now(),
+	)
+	return err
+}
+
+func (r *UserRepo) UpdateSubscriptionPlanByUserID(ctx context.Context, subscriptionID, id int) error {
+	query := `
+	UPDATE users
+	SET 
+		subscription_id = $1, updated_at = $2
+	WHERE id = $3`
+	_, err := r.db.Exec(ctx, query,
+		id, subscriptionID, time.Now(),
 	)
 	return err
 }
@@ -320,8 +537,8 @@ func (r *UserRepo) GetAll(ctx context.Context) ([]*models.User, error) {
 		var user models.User
 		if err := rows.Scan(
 			&user.ID, &user.Username, &user.Password, &user.Name, &user.AvatarURL, &user.Status,
-			&user.Role, &user.Email, &user.Mobile, &user.TotalEarnings, &user.TotalWithdraw, &user.TotalExpenses, &user.Address,
-			&user.SubscriptionID, &user.CreatedAt, &user.UpdatedAt,
+			&user.Role, &user.Email, &user.Mobile, &user.TotalEarnings, &user.TotalWithdraw,
+			&user.TotalExpenses, &user.Address, &user.SubscriptionID, &user.CreatedAt, &user.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -331,7 +548,12 @@ func (r *UserRepo) GetAll(ctx context.Context) ([]*models.User, error) {
 }
 
 func (r *UserRepo) DecrementDownloadLimit(ctx context.Context, userID int) error {
-	query := `UPDATE subscription_plans SET download_limit = download_limit - 1 WHERE user_id = $1 AND download_limit > 0`
+	// Decrement download count in subscription
+	query := `
+		UPDATE subscriptions 
+		SET total_downloads = total_downloads - 1 
+		WHERE user_id = $1 AND total_downloads > 0
+	`
 	_, err := r.db.Exec(ctx, query, userID)
 	return err
 }

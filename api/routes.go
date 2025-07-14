@@ -49,11 +49,10 @@ func (app *application) routes() http.Handler {
 			r.Post("/", app.UploadMedia) // Upload new media
 			// Secure premium endpoint
 			r.Group(func(r chi.Router) {         // Regular auth check
-				r.Use(app.WithSubscriptionCheck) // Premium subscription check
+				// r.Use(app.WithSubscriptionCheck) // Premium subscription check
 
-				// r.Get("/premium/{mediaUUID}", app.ServePremiumImage)
+				r.Get("/premium", app.ServeMedia)
 			}) // Retrieve a single media item by ID
-
 		})
 
 		// 	r.Put("/{id}", app.UpdateMedia)                   // Update an existing media item
@@ -72,6 +71,16 @@ func (app *application) routes() http.Handler {
 			r.Post("/", app.CreateMediaCategory)   // Create a new category
 			r.Put("/", app.UpdateMediaCategory)    // Update an existing category
 			r.Delete("/", app.DeleteMediaCategory) // Delete a category
+		})
+	})
+
+	mux.Route("/api/v1/plans", func(r chi.Router) {
+		// r.Get("/",  app.GetPlans)
+		r.Post("/", app.CreatePlan)
+		// r.Put("/", app.UpdatePlan)
+
+		r.Group(func(r chi.Router) {
+			r.Post("/purchase", app.PurchasePlan)
 		})
 	})
 

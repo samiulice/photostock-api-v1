@@ -198,13 +198,8 @@ func IsSubscriptionValid(ctx context.Context) (bool, string) {
 
 	user, err := app.DB.UserRepo.GetByID(ctx, token.ID)
 	// Check if the user object is nil
-	if err != nil  {
-		return false, "User not found"
-	}
-
-	// Check if the user has a linked subscription plan
-	if user.SubscriptionPlan == nil {
-		return false, "No active subscription plan"
+	if err != nil {
+		return false, "User not found in the database"
 	}
 
 	// Check if the user account is marked as active
@@ -212,20 +207,22 @@ func IsSubscriptionValid(ctx context.Context) (bool, string) {
 		return false, "User is inactive"
 	}
 
-	plan := user.SubscriptionPlan
+	// Check if the user has a linked subscription plan
+	if user.CurrentPlan == nil {
+		return false, "No active subscription plan"
+	}
+	plan := user.CurrentPlan
 
 	// Ensure the user still has remaining downloads
-	if plan.DownloadLimit <= 0 {
+	if plan.TotalDownloads >= plan.PlanDetails.DownloadLimit {
 		return false, "Download limit exceeded"
 	}
 
 	// Check if the current time is past the subscription expiration
-	expiresAt, err := time.Parse(time.RFC3339, plan.ExpiresAt)
-	if err != nil {
-		return false, "Invalid subscription expiration date"
-	}
-	if time.Now().After(expiresAt) {
-		return false, "Subscription expired"
+	expiry := plan.PaymentTime.AddDate(0, 0, plan.PlanDetails.ExpiresAt)
+
+	if time.Now().After(expiry) {
+		return false, "Your subscription has expired"
 	}
 
 	// All checks passed
