@@ -171,10 +171,10 @@ func (app *application) Logger(next http.Handler) http.Handler {
 
 // withSubscriptionCheck is a middleware that wraps an HTTP handler.
 // It checks the user's subscription before allowing access to the file server.
-func (app *application) WithSubscriptionCheck(user *models.User, next http.Handler) http.Handler {
+func (app *application) WithSubscriptionCheck(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Check subscription validity
-		valid, msg := IsSubscriptionValid(user)
+		valid, msg := IsSubscriptionValid(r.Context())
 
 		// If check fails, return 403 Forbidden with a reason
 		if !valid {
@@ -189,7 +189,14 @@ func (app *application) WithSubscriptionCheck(user *models.User, next http.Handl
 
 // IsSubscriptionValid checks if a user's subscription is valid.
 // Returns a boolean and a message explaining the result.
-func IsSubscriptionValid(user *models.User) (bool, string) {
+func IsSubscriptionValid(ctx context.Context) (bool, string) {
+
+	token, ok := app.GetUserTokenFromContext(ctx)
+	if !ok {
+		return false, "Invalid token"
+	}
+
+	user, err := app.DB.
 	// Check if the user object is nil
 	if user == nil {
 		return false, "User not found"

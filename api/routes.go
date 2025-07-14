@@ -22,9 +22,9 @@ func (app *application) routes() http.Handler {
 	mux.Use(app.Logger)
 
 	// Serve /images/ → ./assets/images/
-	thumbnailDir := filepath.Join(".", "assets", "images")
-	fs := http.StripPrefix("/images/", http.FileServer(http.Dir(thumbnailDir)))
-	mux.Handle("/images/*", fs)
+	thumbnailDir := filepath.Join(".", "assets", "images", "public")
+	fs := http.StripPrefix("/public/", http.FileServer(http.Dir(thumbnailDir)))
+	mux.Handle("/public/*", fs)
 
 	// --- Authentication & User Management ---
 	mux.Route("/api/v1/auth", func(r chi.Router) {
@@ -47,7 +47,12 @@ func (app *application) routes() http.Handler {
 		r.Group(func(r chi.Router) {
 			r.Use(app.AuthUser)
 			r.Post("/", app.UploadMedia) // Upload new media
-			// r.Get("/{id}", app.DownloadPremiumMedia)                      // Retrieve a single media item by ID
+			// Secure premium endpoint
+			r.Group(func(r chi.Router) {         // Regular auth check
+				r.Use(app.WithSubscriptionCheck) // Premium subscription check
+
+				r.Get("/premium/{mediaUUID}", api.ServePremiumImage)
+			}) // Retrieve a single media item by ID
 
 		})
 

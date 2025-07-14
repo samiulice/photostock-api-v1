@@ -367,7 +367,7 @@ func (app *application) CreateMediaCategory(w http.ResponseWriter, r *http.Reque
 	}
 	// Generate safe filename
 	filename := app.GenerateSafeFilename(name, handler)
-	uploadDir := filepath.Join(".", "assets", "images", "categories")
+	uploadDir := filepath.Join(".", "assets", "images", "public", "categories")
 
 	// Check if folder exists
 	if _, err := os.Stat(uploadDir); os.IsNotExist(err) {
@@ -413,7 +413,7 @@ func (app *application) CreateMediaCategory(w http.ResponseWriter, r *http.Reque
 	//save metadata to the backend
 	category := models.MediaCategory{
 		Name:         name,
-		ThumbnailURL: models.APIEndPoint + path.Join("images", "categories", filename),
+		ThumbnailURL: models.APIEndPoint + path.Join("images", "public", "categories", filename),
 	}
 	err = app.DB.MediaCategoryRepo.Create(r.Context(), &category)
 	if err != nil {
@@ -452,7 +452,7 @@ func (app *application) DeleteMediaCategory(w http.ResponseWriter, r *http.Reque
 	param := r.URL.Query().Get("cat_id")
 	cat_id, err := strconv.Atoi(param)
 	if err != nil {
-		app.badRequest(w, fmt.Errorf("Invalid id", err))
+		app.badRequest(w, fmt.Errorf("Invalid id: %w", err))
 		return
 	}
 	err = app.DB.MediaCategoryRepo.Delete(r.Context(), cat_id)
@@ -505,12 +505,12 @@ func (app *application) ListMedia(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fileDir := filepath.Join(".", "assets", "images", "thumbnails")
+	fileDir := filepath.Join(".", "assets", "images", "public", "thumbnails")
 	for _, v := range list {
 		_, err := os.Stat(filepath.Join(fileDir, "thumb_"+v.MediaUUID))
 		if err == nil {
 			//TODO:
-			v.MediaURL = models.APIEndPoint + path.Join("images", "thumbnails", "thumb_"+v.MediaUUID)
+			v.MediaURL = models.APIEndPoint + path.Join("images", "public", "thumbnails", "thumb_"+v.MediaUUID)
 			v.MediaUUID = ""
 			Resp.Medias = append(Resp.Medias, v)
 			app.infoLog.Println(*v)
@@ -553,11 +553,11 @@ func (app *application) FetchMediaDetails(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	fileDir := filepath.Join(".", "assets", "images", "thumbnails")
+	fileDir := filepath.Join(".", "assets", "images", "public", "thumbnails")
 	_, err = os.Stat(filepath.Join(fileDir, "thumb_"+media.MediaUUID))
 	if err == nil {
 		//TODO:
-		media.MediaURL = models.APIEndPoint + path.Join("images", "thumbnails", "thumb_"+media.MediaUUID)
+		media.MediaURL = models.APIEndPoint + path.Join("images", "public", "thumbnails", "thumb_"+media.MediaUUID)
 		media.MediaUUID = ""
 		Resp.Media = media
 		app.infoLog.Println(media)
@@ -600,9 +600,11 @@ func (app *application) UploadMedia(w http.ResponseWriter, r *http.Request) {
 	license_type := r.FormValue("license_type") // "free = 0" or "premium = 1"
 	//validate categoryId
 	categoryId, catErr := strconv.Atoi(catId)
-	licenseType := 0
-	if strings.ToLower(license_type) == "paid" {
-		licenseType = 1
+	licenseType := 1
+	imageType := "premium"
+	if strings.ToLower(license_type) == "free" {
+		licenseType = 0
+		imageType = filepath.Join("public", "free")
 	}
 	licOk := strings.ToLower(license_type) == "free" || strings.ToLower(license_type) == "paid"
 	// Validate fields
@@ -617,7 +619,7 @@ func (app *application) UploadMedia(w http.ResponseWriter, r *http.Request) {
 	// Generate safe filename
 	filename := app.GenerateSafeFilename("", handler)
 
-	uploadDir := filepath.Join(".", "assets", "images", "original")
+	uploadDir := filepath.Join(".", "assets", "images", imageType)
 
 	// Check if folder exists
 	if _, err := os.Stat(uploadDir); os.IsNotExist(err) {
@@ -797,7 +799,11 @@ func (app *application) DownloadPremiumMedia(w http.ResponseWriter, r *http.Requ
 	}
 
 	// 9. Serve the file
-	mediaPath := path.Join("secure", "images", "premium", mediaUUID)
+	imageType := "premium"
+	if(media.LicenseType == 0){
+		imageType = "free"
+	}
+	mediaPath := path.Join("secure", "images", imageType, mediaUUID)
 	if _, err := os.Stat(mediaPath); err != nil {
 		app.errorLog.Printf("File not found: %s", mediaPath)
 		Resp.Error = true
