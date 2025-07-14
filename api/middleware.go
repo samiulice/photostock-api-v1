@@ -196,9 +196,9 @@ func IsSubscriptionValid(ctx context.Context) (bool, string) {
 		return false, "Invalid token"
 	}
 
-	user, err := app.DB.
+	user, err := app.DB.UserRepo.GetByID(ctx, token.ID)
 	// Check if the user object is nil
-	if user == nil {
+	if err != nil  {
 		return false, "User not found"
 	}
 

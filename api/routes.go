@@ -51,7 +51,7 @@ func (app *application) routes() http.Handler {
 			r.Group(func(r chi.Router) {         // Regular auth check
 				r.Use(app.WithSubscriptionCheck) // Premium subscription check
 
-				r.Get("/premium/{mediaUUID}", api.ServePremiumImage)
+				// r.Get("/premium/{mediaUUID}", app.ServePremiumImage)
 			}) // Retrieve a single media item by ID
 
 		})
