@@ -524,6 +524,52 @@ func (app *application) ListMedia(w http.ResponseWriter, r *http.Request) {
 	app.writeJSON(w, http.StatusOK, Resp)
 }
 
+func (app *application) FetchMediaDetails(w http.ResponseWriter, r *http.Request) {
+	id := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("id")))
+	var Resp struct {
+		Error   bool            `json:"error"`
+		Message string          `json:"message"`
+		Media *models.Media `json:"media"`
+	}
+	mediaID, err := strconv.Atoi(id)
+	if err != nil || mediaID == 0 {
+		app.errorLog.Println("Please specify image id")
+		Resp.Error = true
+		Resp.Message = "Please specify image id"
+		app.writeJSON(w, http.StatusBadRequest, Resp)
+		return
+	}
+
+	var media *models.Media
+
+	//get the images metadata from database
+	media, err = app.DB.MediaRepo.GetByID(r.Context(), mediaID)
+
+	if err != nil && err != sql.ErrNoRows {
+		app.errorLog.Println("Could not get image metadata: ", err)
+		Resp.Error = true
+		Resp.Message = "Image metadata can't be loaded"
+		app.writeJSON(w, http.StatusBadRequest, Resp)
+		return
+	}
+
+	fileDir := filepath.Join(".", "assets", "images", "thumbnails")
+	_, err = os.Stat(filepath.Join(fileDir, "thumb_"+media.MediaUUID))
+	if err == nil {
+		//TODO:
+		media.MediaURL = models.APIEndPoint + path.Join("images", "thumbnails", "thumb_"+media.MediaUUID)
+		media.MediaUUID = ""
+		Resp.Media = media
+		app.infoLog.Println(media)
+	} else {
+		app.errorLog.Println(media)
+	}
+
+	Resp.Error = false
+	Resp.Message = "Images retrieved successfully"
+	app.writeJSON(w, http.StatusOK, Resp)
+}
+
 func (app *application) UploadMedia(w http.ResponseWriter, r *http.Request) {
 	var Resp struct {
 		Error   bool   `json:"error"`
@@ -555,12 +601,12 @@ func (app *application) UploadMedia(w http.ResponseWriter, r *http.Request) {
 	//validate categoryId
 	categoryId, catErr := strconv.Atoi(catId)
 	licenseType := 0
-	if license_type == "paid" {
+	if strings.ToLower(license_type) == "paid" {
 		licenseType = 1
 	}
-	LicErr := license_type == "free" || license_type == "paid"
+	licOk := strings.ToLower(license_type) == "free" || strings.ToLower(license_type) == "paid"
 	// Validate fields
-	if catErr != nil || LicErr || title == "" {
+	if catErr != nil || !licOk || title == "" {
 		app.errorLog.Println("Missing or invalid fields", "title:", title, "Description: ", description, "catid: ", catId, "lic_type", license_type)
 		Resp.Error = true
 		Resp.Message = "Missing or invalid fields"

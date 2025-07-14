@@ -42,14 +42,15 @@ func (app *application) routes() http.Handler {
 
 	// --- Media Management ---
 	mux.Route("/api/v1/media", func(r chi.Router) {
-		r.Get("/", app.ListMedia)    // List all media
+		r.Get("/", app.ListMedia)                // List all media
+		r.Get("/details", app.FetchMediaDetails) // List all media
 		r.Group(func(r chi.Router) {
 			r.Use(app.AuthUser)
 			r.Post("/", app.UploadMedia) // Upload new media
-			r.Get("/{id}", app.DownloadPremiumMedia)                      // Retrieve a single media item by ID
-		
+			// r.Get("/{id}", app.DownloadPremiumMedia)                      // Retrieve a single media item by ID
+
 		})
-		
+
 		// 	r.Put("/{id}", app.UpdateMedia)                   // Update an existing media item
 		// 	r.Delete("/{id}", app.DeleteMedia)                // Delete a media item
 
