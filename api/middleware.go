@@ -168,3 +168,59 @@ func (app *application) Logger(next http.Handler) http.Handler {
 		next.ServeHTTP(w, r)
 	})
 }
+
+// withSubscriptionCheck is a middleware that wraps an HTTP handler.
+// It checks the user's subscription before allowing access to the file server.
+func (app *application) WithSubscriptionCheck(user *models.User, next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Check subscription validity
+		valid, msg := IsSubscriptionValid(user)
+
+		// If check fails, return 403 Forbidden with a reason
+		if !valid {
+			http.Error(w, msg, http.StatusForbidden)
+			return
+		}
+
+		// If valid, proceed to the next handler (file server)
+		next.ServeHTTP(w, r)
+	})
+}
+
+// IsSubscriptionValid checks if a user's subscription is valid.
+// Returns a boolean and a message explaining the result.
+func IsSubscriptionValid(user *models.User) (bool, string) {
+	// Check if the user object is nil
+	if user == nil {
+		return false, "User not found"
+	}
+
+	// Check if the user has a linked subscription plan
+	if user.SubscriptionPlan == nil {
+		return false, "No active subscription plan"
+	}
+
+	// Check if the user account is marked as active
+	if !user.Status {
+		return false, "User is inactive"
+	}
+
+	plan := user.SubscriptionPlan
+
+	// Ensure the user still has remaining downloads
+	if plan.DownloadLimit <= 0 {
+		return false, "Download limit exceeded"
+	}
+
+	// Check if the current time is past the subscription expiration
+	expiresAt, err := time.Parse(time.RFC3339, plan.ExpiresAt)
+	if err != nil {
+		return false, "Invalid subscription expiration date"
+	}
+	if time.Now().After(expiresAt) {
+		return false, "Subscription expired"
+	}
+
+	// All checks passed
+	return true, "Access granted"
+}

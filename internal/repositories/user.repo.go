@@ -91,7 +91,7 @@ func (r *UserRepo) GetByID(ctx context.Context, id int) (*models.User, error) {
 		&sub.Title,
 		&sub.Terms,
 		&sub.DownloadLimit,
-		&sub.TimeLimit,
+		&sub.ExpiresAt,
 		&sub.Status,
 		&sub.CreatedAt,
 		&sub.UpdatedAt,
@@ -167,7 +167,7 @@ func (r *UserRepo) GetByUsername(ctx context.Context, username string) (*models.
 		&sub.Title,
 		&sub.Terms,
 		&sub.DownloadLimit,
-		&sub.TimeLimit,
+		&sub.ExpiresAt,
 		&sub.Status,
 		&sub.CreatedAt,
 		&sub.UpdatedAt,
@@ -270,7 +270,7 @@ func (r *UserRepo) GetByEmail(ctx context.Context, email string) (*models.User, 
 			Title:         subTitle.String,
 			Terms:         subTerms.String,
 			DownloadLimit: int(subDL.Int64),
-			TimeLimit:     subTimeLimit.String,
+			ExpiresAt:     subTimeLimit.String,
 			Status:        subStatus.Bool,
 			CreatedAt:     subCreatedAt.Time,
 			UpdatedAt:     subUpdatedAt.Time,
@@ -328,4 +328,10 @@ func (r *UserRepo) GetAll(ctx context.Context) ([]*models.User, error) {
 		users = append(users, &user)
 	}
 	return users, nil
+}
+
+func (r *UserRepo) DecrementDownloadLimit(ctx context.Context, userID int) error {
+	query := `UPDATE subscription_plans SET download_limit = download_limit - 1 WHERE user_id = $1 AND download_limit > 0`
+	_, err := r.db.Exec(ctx, query, userID)
+	return err
 }

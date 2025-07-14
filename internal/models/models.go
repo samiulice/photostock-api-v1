@@ -45,7 +45,7 @@ type SubscriptionPlan struct {
 	Terms         string    `json:"terms"`
 	Status        bool      `json:"status"`
 	DownloadLimit int       `json:"download_limit"`
-	TimeLimit     string    `json:"time_limit"` // Representing INTERVAL as string
+	ExpiresAt     string    `json:"expires_at"` // Representing INTERVAL as string
 	CreatedAt     time.Time `json:"created_at"`
 	UpdatedAt     time.Time `json:"updated_at"`
 }

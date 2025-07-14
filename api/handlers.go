@@ -366,7 +366,7 @@ func (app *application) CreateMediaCategory(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	// Generate safe filename
-	filename := app.GenerateSafeFilename(handler)
+	filename := app.GenerateSafeFilename(name, handler)
 	uploadDir := filepath.Join(".", "assets", "images", "categories")
 
 	// Check if folder exists
@@ -615,7 +615,7 @@ func (app *application) UploadMedia(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Generate safe filename
-	filename := app.GenerateSafeFilename(handler)
+	filename := app.GenerateSafeFilename("", handler)
 
 	uploadDir := filepath.Join(".", "assets", "images", "original")
 
@@ -703,9 +703,10 @@ func (app *application) DownloadPremiumMedia(w http.ResponseWriter, r *http.Requ
 		Error   bool   `json:"error"`
 		Message string `json:"message"`
 	}
-	// get media info by media_uuid
-	media_uuid := r.URL.Query().Get("id")
-	if strings.TrimSpace(media_uuid) == "" {
+
+	// 1. Validate media UUID
+	mediaUUID := strings.TrimSpace(r.URL.Query().Get("id"))
+	if mediaUUID == "" {
 		app.errorLog.Println("No media id provided")
 		Resp.Error = true
 		Resp.Message = "Invalid or missing media id"
@@ -713,74 +714,114 @@ func (app *application) DownloadPremiumMedia(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	m, err := app.DB.MediaRepo.GetByMediaUUID(r.Context(), media_uuid)
+	// 2. Get media info from DB
+	media, err := app.DB.MediaRepo.GetByMediaUUID(r.Context(), mediaUUID)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			app.errorLog.Println("Invalid media_uuid")
+			app.errorLog.Printf("Invalid media_uuid: %s", mediaUUID)
 			Resp.Error = true
-			Resp.Message = "wrong media id"
+			Resp.Message = "Invalid media ID"
 			app.writeJSON(w, http.StatusBadRequest, Resp)
 			return
 		}
-		app.errorLog.Println("Unable to get media info")
+		app.errorLog.Println("Error fetching media:", err)
 		Resp.Error = true
-		Resp.Message = "Internal Server Error: Unable to media info! Try again"
-		app.writeJSON(w, http.StatusBadRequest, Resp)
+		Resp.Message = "Internal Server Error: Could not retrieve media info"
+		app.writeJSON(w, http.StatusInternalServerError, Resp)
 		return
 	}
 
-	if m.LicenseType == 1 {
-		app.errorLog.Println("Free image! Redirect to image download page")
+	// 3. Redirect free images
+	if media.LicenseType == 1 {
+		app.infoLog.Println("Redirecting to free image download")
 		Resp.Error = false
-		Resp.Message = models.APIEndPoint + path.Join("images", "free", media_uuid)
-		app.writeJSON(w, http.StatusBadRequest, Resp)
+		Resp.Message = models.APIEndPoint + path.Join("images", "free", mediaUUID)
+		app.writeJSON(w, http.StatusOK, Resp)
 		return
 	}
+
+	// 4. Get user from context
 	token, ok := app.GetUserTokenFromContext(r.Context())
 	if !ok {
-		app.errorLog.Println("Could not get user token from context")
+		app.errorLog.Println("User token not found in context")
 		Resp.Error = true
-		Resp.Message = "Access Denied: Could not get user token from context"
-		app.writeJSON(w, http.StatusBadRequest, Resp)
+		Resp.Message = "Access Denied: Please log in"
+		app.writeJSON(w, http.StatusUnauthorized, Resp)
 		return
 	}
 
-	// get user by id
+	// 5. Get user from DB
 	user, err := app.DB.UserRepo.GetByID(r.Context(), token.ID)
 	if err != nil {
-		app.errorLog.Println("Could not get user data from database")
+		app.errorLog.Println("Failed to load user:", err)
 		Resp.Error = true
-		Resp.Message = "Access Denied: Could not get user data from database"
-		app.writeJSON(w, http.StatusBadRequest, Resp)
+		Resp.Message = "Access Denied: Could not load user"
+		app.writeJSON(w, http.StatusInternalServerError, Resp)
 		return
 	}
 
-	// check users subscription
-	if user.SubscriptionPlan.Status {
-		app.errorLog.Println("No subscription plan for this user")
+	// 6. Validate subscription
+	plan := user.SubscriptionPlan
+	if plan == nil || !plan.Status {
+		app.errorLog.Printf("User %d has no active subscription", user.ID)
 		Resp.Error = true
-		Resp.Message = "no plan"
-		app.writeJSON(w, http.StatusBadRequest, Resp)
+		Resp.Message = "You must have an active subscription"
+		app.writeJSON(w, http.StatusForbidden, Resp)
 		return
 	}
 
-	// check users download limit
-	expiredDate, err := time.Parse(user.SubscriptionPlan.TimeLimit, "02-01-2006")
+	// 7. Check if subscription expired
+	expiry, err := time.Parse("02-01-2006", plan.ExpiresAt)
 	if err != nil {
-		app.errorLog.Println("Could not parse the expiry date")
+		app.errorLog.Println("Error parsing expiry date:", err)
 		Resp.Error = true
-		Resp.Message = "Internal Server Error: Could not parse the expiry date"
-		app.writeJSON(w, http.StatusBadRequest, Resp)
+		Resp.Message = "Subscription error: could not validate expiration"
+		app.writeJSON(w, http.StatusInternalServerError, Resp)
 		return
 	}
-	notExpired := time.Now().Compare(expiredDate) <= 0
-	if user.SubscriptionPlan.DownloadLimit > 0 && notExpired {
-		app.errorLog.Println("No subscription plan for this user")
+	if time.Now().After(expiry) {
+		app.errorLog.Printf("Subscription expired for user %d", user.ID)
 		Resp.Error = true
-		Resp.Message = "no plan"
-		app.writeJSON(w, http.StatusBadRequest, Resp)
+		Resp.Message = "Your subscription has expired"
+		app.writeJSON(w, http.StatusForbidden, Resp)
 		return
 	}
 
-	http.ServeFile(w, r, path.Join("secure", "images", "premium", media_uuid))
+	// 8. Check download limit
+	if plan.DownloadLimit <= 0 {
+		app.errorLog.Printf("User %d has reached download limit", user.ID)
+		Resp.Error = true
+		Resp.Message = "Download limit reached. Please upgrade your plan."
+		app.writeJSON(w, http.StatusForbidden, Resp)
+		return
+	}
+
+	// 9. Serve the file
+	mediaPath := path.Join("secure", "images", "premium", mediaUUID)
+	if _, err := os.Stat(mediaPath); err != nil {
+		app.errorLog.Printf("File not found: %s", mediaPath)
+		Resp.Error = true
+		Resp.Message = "File not found"
+		app.writeJSON(w, http.StatusNotFound, Resp)
+		return
+	}
+
+	app.infoLog.Printf("Serving premium media %s to user %d", mediaUUID, user.ID)
+	http.ServeFile(w, r, mediaPath)
+
+	// 10. Decrement download limit (persist in DB)
+	err = app.DB.UserRepo.DecrementDownloadLimit(r.Context(), user.ID)
+	if err != nil {
+		// Log error but do not fail the download
+		app.errorLog.Printf("Failed to decrement download limit for user %d: %v", user.ID, err)
+	} else {
+		app.infoLog.Printf("Decremented download limit for user %d", user.ID)
+	}
+
+	// 11. Optionally: Log the download event (in database or analytics system)
+	// err = app.DB.MediaRepo.LogDownload(r.Context(), user.ID, media.ID)
+	// if err != nil {
+	// 	app.errorLog.Printf("Failed to log media download for user %d: %v", user.ID, err)
+	// }
 }
+

@@ -23,7 +23,7 @@ func (r *SubscriptionTypeRepo) Create(ctx context.Context, st *models.Subscripti
 	VALUES ($1, $2, $3, $4, $5, $6, $7)
 	RETURNING id`
 	return r.db.QueryRow(ctx, query,
-		st.Title, st.Terms, st.Status, st.DownloadLimit, st.TimeLimit, time.Now(), time.Now(),
+		st.Title, st.Terms, st.Status, st.DownloadLimit, st.ExpiresAt, time.Now(), time.Now(),
 	).Scan(&st.ID)
 }
 
@@ -34,7 +34,7 @@ func (r *SubscriptionTypeRepo) GetByID(ctx context.Context, id int) (*models.Sub
 	WHERE id = $1`
 	st := &models.SubscriptionPlan{}
 	err := r.db.QueryRow(ctx, query, id).Scan(
-		&st.ID, &st.Title, &st.Terms, &st.Status, &st.DownloadLimit, &st.TimeLimit, &st.CreatedAt, &st.UpdatedAt,
+		&st.ID, &st.Title, &st.Terms, &st.Status, &st.DownloadLimit, &st.ExpiresAt, &st.CreatedAt, &st.UpdatedAt,
 	)
 	return st, err
 }
@@ -45,7 +45,7 @@ func (r *SubscriptionTypeRepo) Update(ctx context.Context, st *models.Subscripti
 	SET title = $2, terms = $3, status = $4, download_limit = $5, time_limit = $6, updated_at = $7
 	WHERE id = $1`
 	_, err := r.db.Exec(ctx, query,
-		st.ID, st.Title, st.Terms, st.Status, st.DownloadLimit, st.TimeLimit, time.Now(),
+		st.ID, st.Title, st.Terms, st.Status, st.DownloadLimit, st.ExpiresAt, time.Now(),
 	)
 	return err
 }
@@ -70,7 +70,7 @@ func (r *SubscriptionTypeRepo) GetAll(ctx context.Context) ([]models.Subscriptio
 	for rows.Next() {
 		var st models.SubscriptionPlan
 		if err := rows.Scan(
-			&st.ID, &st.Title, &st.Terms, &st.Status, &st.DownloadLimit, &st.TimeLimit, &st.CreatedAt, &st.UpdatedAt,
+			&st.ID, &st.Title, &st.Terms, &st.Status, &st.DownloadLimit, &st.ExpiresAt, &st.CreatedAt, &st.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}

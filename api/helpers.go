@@ -9,6 +9,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -90,8 +91,11 @@ func (app *application) GenerateRandomAlphanumericCode(length int) string {
 }
 
 // GenerateSafeFilename will generate a filename for image
-func (app *application) GenerateSafeFilename(handler *multipart.FileHeader) string {
+func (app *application) GenerateSafeFilename(fixedName string, handler *multipart.FileHeader) string {
 	ext := filepath.Ext(handler.Filename)
+	if strings.TrimSpace(fixedName) != "" {
+		return fmt.Sprintf("%s%s", fixedName, ext)
+	}
 	safeBase := uuid.NewString()
 	return fmt.Sprintf("%s_%d%s", safeBase, time.Now().UnixNano(), ext)
 }
