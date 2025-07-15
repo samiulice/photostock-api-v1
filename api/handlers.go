@@ -1055,14 +1055,17 @@ func (app *application) CreatePlan(w http.ResponseWriter, r *http.Request) {
 	var Resp struct {
 		Error   bool   `json:"error"`
 		Message string `json:"message"`
+		Plan models.SubscriptionPlan `json:"plan"`
 	}
-	var plan models.SubscriptionPlan
-	err := app.readJSON(w, r, &plan)
+	var p models.SubscriptionPlan
+	err := app.readJSON(w, r, &p)
 	if err != nil {
 		app.badRequest(w, err)
 		return
 	}
-	err = app.DB.SubscriptionTypeRepo.Create(r.Context(), &plan)
+
+	app.infoLog.Println(p)
+	err = app.DB.SubscriptionTypeRepo.Create(r.Context(), &p)
 	if err != nil {
 		app.badRequest(w, err)
 		return
@@ -1070,6 +1073,7 @@ func (app *application) CreatePlan(w http.ResponseWriter, r *http.Request) {
 
 	Resp.Error = false
 	Resp.Message = "New Plan added successfully"
+	Resp.Plan = p
 	app.writeJSON(w, http.StatusOK, Resp)
 }
 

@@ -2,6 +2,7 @@ package repositories
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -17,23 +18,25 @@ func NewSubscriptionPlanRepo(db *pgxpool.Pool) *SubscriptionTypeRepo {
 	return &SubscriptionTypeRepo{db: db}
 }
 
-func (r *SubscriptionTypeRepo) Create(ctx context.Context, st *models.SubscriptionPlan) error {
+func (r *SubscriptionTypeRepo) Create(ctx context.Context, sp *models.SubscriptionPlan) error {
+	sp.Terms = strings.Join(sp.TermsList, "[[]]") // Concatenate terms
 	query := `
-		INSERT INTO subscription_plans (title, terms, status, download_limit, time_limit, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5::interval, $6, $7)
+		INSERT INTO subscription_plans (title, terms, status, price, download_limit, expires_at, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 		RETURNING id`
 	return r.db.QueryRow(ctx, query,
-		st.Title, st.Terms, st.Status, st.DownloadLimit, st.ExpiresAt, time.Now(), time.Now(),
-	).Scan(&st.ID)
+		sp.Title, sp.Terms, sp.Status, sp.Price, sp.DownloadLimit, sp.ExpiresAt, time.Now(), time.Now(),
+	).Scan(&sp.ID)
 }
 
-func (r *SubscriptionTypeRepo) Update(ctx context.Context, st *models.SubscriptionPlan) error {
+func (r *SubscriptionTypeRepo) Update(ctx context.Context, sp *models.SubscriptionPlan) error {
+	sp.Terms = strings.Join(sp.TermsList, ",") // Concatenate terms
 	query := `
 		UPDATE subscription_plans
-		SET title = $2, terms = $3, status = $4, download_limit = $5, time_limit = $6::interval, updated_at = $7
+		SET title = $2, terms = $3, status = $4, price = $5, download_limit = $6, expires_at = $7, updated_at = $8
 		WHERE id = $1`
 	_, err := r.db.Exec(ctx, query,
-		st.ID, st.Title, st.Terms, st.Status, st.DownloadLimit, st.ExpiresAt, time.Now(),
+		sp.ID, sp.Title, sp.Terms, sp.Status, sp.Price, sp.DownloadLimit, sp.ExpiresAt, time.Now(),
 	)
 	return err
 }
@@ -46,7 +49,7 @@ func (r *SubscriptionTypeRepo) Delete(ctx context.Context, id int) error {
 
 func (r *SubscriptionTypeRepo) GetAll(ctx context.Context) ([]*models.SubscriptionPlan, error) {
 	query := `
-		SELECT id, title, terms, status, download_limit, time_limit::text, created_at, updated_at
+		SELECT id, title, terms, status, price, download_limit, expires_at, created_at, updated_at
 		FROM subscription_plans`
 	rows, err := r.db.Query(ctx, query)
 	if err != nil {
@@ -54,15 +57,21 @@ func (r *SubscriptionTypeRepo) GetAll(ctx context.Context) ([]*models.Subscripti
 	}
 	defer rows.Close()
 
-	var types []*models.SubscriptionPlan
+	var plans []*models.SubscriptionPlan
 	for rows.Next() {
-		var st models.SubscriptionPlan
-		if err := rows.Scan(
-			&st.ID, &st.Title, &st.Terms, &st.Status, &st.DownloadLimit, &st.ExpiresAt, &st.CreatedAt, &st.UpdatedAt,
-		); err != nil {
+		var sp models.SubscriptionPlan
+
+		err := rows.Scan(
+			&sp.ID, &sp.Title, &sp.Terms, &sp.Status, &sp.Price, &sp.DownloadLimit, &sp.ExpiresAt, &sp.CreatedAt, &sp.UpdatedAt,
+		)
+		if err != nil {
 			return nil, err
 		}
-		types = append(types, &st)
+
+		// Split terms for client use
+		sp.TermsList = strings.Split(sp.Terms, "[[]]")
+
+		plans = append(plans, &sp)
 	}
-	return types, nil
+	return plans, nil
 }

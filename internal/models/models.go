@@ -42,13 +42,16 @@ type JWT struct {
 type SubscriptionPlan struct {
 	ID            int       `json:"id"`
 	Title         string    `json:"title"`
-	Terms         string    `json:"terms"`
+	TermsList     []string  `json:"terms"`
+	Terms         string    `json:"concat_terms"` // stored in DB
 	Status        bool      `json:"status"`
+	Price         int       `json:"price"`
 	DownloadLimit int       `json:"download_limit"`
-	ExpiresAt     int       `json:"expires_at"`
+	ExpiresAt     int       `json:"expires_at"` // stored as interval in DB
 	CreatedAt     time.Time `json:"created_at"`
 	UpdatedAt     time.Time `json:"updated_at"`
 }
+
 
 type MediaCategory struct {
 	ID           int       `json:"id"`
@@ -64,7 +67,7 @@ type User struct {
 	Password       string        `json:"password,omitempty"`
 	Name           string        `json:"name"`
 	AvatarURL      string        `json:"avatar_url"`
-	AvatarID      string        `json:"avatar_id"`
+	AvatarID       string        `json:"avatar_id"`
 	Status         bool          `json:"status"`
 	Role           string        `json:"role"`
 	Email          string        `json:"email"`
