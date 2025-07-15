@@ -279,27 +279,16 @@ func (app *application) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 	//name
 	//mobile
 	//address
-	//status
-
-	//username
 	//email
-	//password
 
-	user.Username = strings.Split(user.Email, "@")[0] + "_" + app.GenerateRandomAlphanumericCode(4)
 	user.Name = strings.TrimSpace(user.Name)
-	user.Password = strings.TrimSpace(user.Password)
-	if user.Password != "" {
-		//hash password
-		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
-		if err != nil {
-			app.badRequest(w, errors.New("Internal Server Error: Try again"))
-			return
-		}
-		user.Password = string(hashedPassword)
-	}
+	user.Mobile = strings.TrimSpace(user.Mobile)
+	user.Email = strings.TrimSpace(user.Email)
+	user.Address = strings.TrimSpace(user.Address)
 
+	app.infoLog.Println(user)
 	// Update user details in the database
-	err = app.DB.UserRepo.Update(r.Context(), &user)
+	err = app.DB.UserRepo.UpdateBasicInfo(r.Context(), &user)
 	if err != nil {
 		app.badRequest(w, err)
 		return
@@ -698,9 +687,24 @@ func (app *application) UploadMedia(w http.ResponseWriter, r *http.Request) {
 		imageType = filepath.Join("public", "free")
 	}
 	licOk := strings.ToLower(license_type) == "free" || strings.ToLower(license_type) == "paid"
+	app.infoLog.Println("title:", title, "Description: ", description, "catid: ", catId, "lic_type", license_type)
 	// Validate fields
-	if catErr != nil || !licOk || title == "" {
-		app.errorLog.Println("Missing or invalid fields", "title:", title, "Description: ", description, "catid: ", catId, "lic_type", license_type)
+	if catErr != nil {
+		app.errorLog.Println("category id error fields: ", catErr)
+		Resp.Error = true
+		Resp.Message = "Missing or invalid fields"
+		app.writeJSON(w, http.StatusBadRequest, Resp)
+		return
+	}
+	if !licOk {
+		app.errorLog.Println("Invalid license type: ")
+		Resp.Error = true
+		Resp.Message = "Missing or invalid fields"
+		app.writeJSON(w, http.StatusBadRequest, Resp)
+		return
+	}
+	if title == "" {
+		app.errorLog.Println("Missing title field: ", title)
 		Resp.Error = true
 		Resp.Message = "Missing or invalid fields"
 		app.writeJSON(w, http.StatusBadRequest, Resp)

@@ -502,6 +502,17 @@ func (r *UserRepo) Update(ctx context.Context, user *models.User) error {
 	)
 	return err
 }
+func (r *UserRepo) UpdateBasicInfo(ctx context.Context, user *models.User) error {
+	query := `
+	UPDATE users
+	SET 
+		name = $1, email = $2, mobile = $3, address = $4, updated_at = $5
+	WHERE id = $6`
+	_, err := r.db.Exec(ctx, query,
+		user.Name, user.Email, user.Mobile, user.Address, time.Now(), user.ID,
+	)
+	return err
+}
 func (r *UserRepo) UpdateSubscriptionPlanByUserID(ctx context.Context, subscriptionID, userID int) error {
 	query := `
 	UPDATE users
