@@ -94,7 +94,9 @@ func (app *application) GenerateRandomAlphanumericCode(length int) string {
 func (app *application) GenerateSafeFilename(fixedName string, handler *multipart.FileHeader) string {
 	ext := filepath.Ext(handler.Filename)
 	if strings.TrimSpace(fixedName) != "" {
-		return fmt.Sprintf("%s%s", fixedName, ext)
+		ext := filepath.Ext(fixedName)
+		newFileName := strings.TrimSuffix(fixedName, ext)
+		return fmt.Sprintf("%s%s", newFileName, ext)
 	}
 	safeBase := uuid.NewString()
 	return fmt.Sprintf("%s_%d%s", safeBase, time.Now().UnixNano(), ext)

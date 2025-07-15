@@ -9,6 +9,7 @@ import (
 	_ "image/png"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"path"
 	"path/filepath"
@@ -16,6 +17,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/samiulice/photostock/internal/models"
 	"github.com/samiulice/photostock/internal/utils"
 
@@ -39,6 +41,7 @@ func (app *application) Register(w http.ResponseWriter, r *http.Request) {
 	user.Status = true
 	user.Role = "user"
 	user.Password = strings.TrimSpace(user.Password)
+	user.AvatarID = strings.Split(user.Email, "@")[0] + "_" + uuid.NewString() + ".jpg"
 	//hash password
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
 	if err != nil {
@@ -135,6 +138,7 @@ func (app *application) Login(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
+	app.infoLog.Println("logged user: ", validUser)
 
 	// Check if user account is active
 	if !validUser.Status {
@@ -303,6 +307,112 @@ func (app *application) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 	app.writeJSON(w, http.StatusOK, Resp)
 }
 
+func (app *application) UpdateProfileImage(w http.ResponseWriter, r *http.Request) {
+	var Resp struct {
+		Error   bool   `json:"error"`
+		Message string `json:"message"`
+		User *models.User `json:"user"`
+	}
+	err := r.ParseMultipartForm(20 << 20) // 20MB max
+	if err != nil {
+		app.errorLog.Println("Could not parse multipart form")
+		Resp.Error = true
+		Resp.Message = "Could not parse multipart form"
+		app.writeJSON(w, http.StatusBadRequest, Resp)
+		return
+	}
+
+	file, handler, err := r.FormFile("image")
+	if err != nil {
+		app.errorLog.Println("Image File Required")
+		Resp.Error = true
+		Resp.Message = "Image File Required"
+		app.writeJSON(w, http.StatusBadRequest, Resp)
+		return
+	}
+	defer file.Close()
+
+	//get uploader details
+	token, ok := app.GetUserTokenFromContext(r.Context())
+	if !ok {
+		app.errorLog.Println("Unable to get user token from request context")
+		Resp.Error = true
+		Resp.Message = "Access Denied"
+		app.writeJSON(w, http.StatusUnauthorized, Resp)
+		return
+	}
+	user, err := app.DB.UserRepo.GetByID(r.Context(), token.ID)
+	if err != nil {
+		app.errorLog.Println("Could not get user details from database", err.Error())
+		Resp.Error = true
+		Resp.Message = "Could not get user details from database"
+		app.writeJSON(w, http.StatusInternalServerError, Resp)
+		return
+	}
+
+	uploadDir := filepath.Join(".", "assets", "images", "public", "profile")
+	
+	// Check if folder exists
+	if _, err := os.Stat(uploadDir); os.IsNotExist(err) {
+		// Folder doesn't exist, create it
+		err := os.MkdirAll(uploadDir, os.ModePerm)
+		if err != nil {
+			app.errorLog.Println("Could not create upload directory:", err.Error())
+			Resp.Error = true
+			Resp.Message = "Could not create upload directory"
+			app.writeJSON(w, http.StatusInternalServerError, Resp)
+			return
+		}
+	}
+
+	//delete file if exist on dstpath
+	_ = os.Remove(filepath.Join(uploadDir, user.AvatarID))
+
+	// Generate safe filename
+	filename := app.GenerateSafeFilename(user.AvatarID, handler)
+
+	err = app.DB.UserRepo.UpdateProfileImageExt(r.Context(), user.ID, filename)
+	if err != nil {
+		app.errorLog.Println("Could not create upload image:", err.Error())
+		Resp.Error = true
+		Resp.Message = "Internal server error"
+		app.writeJSON(w, http.StatusInternalServerError, Resp)
+		return
+	}
+
+	dstPath := filepath.Join(uploadDir, filename)
+	//recreate the filepath
+	dst, err := os.Create(dstPath)
+	if err != nil {
+		app.errorLog.Println("Could not save image to filesystem", err.Error())
+		Resp.Error = true
+		Resp.Message = "Could not save image to filesystem"
+		app.writeJSON(w, http.StatusInternalServerError, Resp)
+		return
+	}
+	defer dst.Close()
+
+	_, err = io.Copy(dst, file)
+	if err != nil {
+		app.errorLog.Println("Error Saving file")
+		Resp.Error = true
+		Resp.Message = "Error saving file"
+		app.writeJSON(w, http.StatusInternalServerError, Resp)
+		return
+	}
+
+	Resp.Error = false
+	Resp.Message = "Image uploaded successfully"
+	
+	//update avatar url
+	baseURL, _ := url.Parse(models.APIEndPoint)
+	baseURL.Path = path.Join(baseURL.Path, "public", "profile", user.AvatarID)
+	user.AvatarURL = baseURL.String()
+
+	Resp.User = user
+	app.writeJSON(w, http.StatusCreated, Resp)
+}
+
 func (app *application) DeactivateProfile(w http.ResponseWriter, r *http.Request) {
 	var Resp struct {
 		Error   bool   `json:"error"`
@@ -319,14 +429,14 @@ func (app *application) DeactivateProfile(w http.ResponseWriter, r *http.Request
 	}
 
 	status, err := strconv.ParseBool(r.URL.Query().Get("status"))
-	if err != nil{
+	if err != nil {
 		app.errorLog.Printf("invalid status: %v", status)
 		Resp.Error = true
 		Resp.Message = "Invalid account status"
 		app.writeJSON(w, http.StatusOK, Resp)
 	}
 	err = app.DB.UserRepo.Deactivate(r.Context(), token.ID, status)
-	if err != nil{
+	if err != nil {
 		app.errorLog.Println("User token not found")
 		Resp.Error = true
 		Resp.Message = "Invalid token: Access denied"

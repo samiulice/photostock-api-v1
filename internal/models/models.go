@@ -64,6 +64,7 @@ type User struct {
 	Password       string        `json:"password,omitempty"`
 	Name           string        `json:"name"`
 	AvatarURL      string        `json:"avatar_url"`
+	AvatarID      string        `json:"avatar_id"`
 	Status         bool          `json:"status"`
 	Role           string        `json:"role"`
 	Email          string        `json:"email"`

@@ -32,6 +32,7 @@ CREATE TABLE users (
     password TEXT NOT NULL DEFAULT '',
     name VARCHAR(100) DEFAULT '',
     avatar_url TEXT DEFAULT '',
+    avatar_ext VARCHAR(50) NOT NULL DEFAULT '.jpg',
     status BOOLEAN DEFAULT TRUE,
     role VARCHAR(50) DEFAULT 'user',
     email VARCHAR(100) UNIQUE NOT NULL DEFAULT '',

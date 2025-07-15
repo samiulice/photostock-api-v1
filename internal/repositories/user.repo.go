@@ -3,6 +3,8 @@ package repositories
 import (
 	"context"
 	"database/sql"
+	"net/url"
+	"path"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -28,7 +30,7 @@ func (r *UserRepo) Create(ctx context.Context, user *models.User) error {
 		) RETURNING id
 	`
 	err := r.db.QueryRow(ctx, query,
-		user.Username, user.Password, user.Name, user.AvatarURL, user.Status, user.Role,
+		user.Username, user.Password, user.Name, user.AvatarID, user.Status, user.Role,
 		user.Email, user.Mobile, user.TotalEarnings, user.TotalWithdraw, user.TotalExpenses, user.Address, user.SubscriptionID,
 		time.Now(), time.Now(),
 	).Scan(&user.ID)
@@ -114,7 +116,7 @@ func (r *UserRepo) GetByID(ctx context.Context, id int) (*models.User, error) {
 		&user.Name,
 		&user.Email,
 		&user.Mobile,
-		&user.AvatarURL,
+		&user.AvatarID,
 		&user.Status,
 		&user.Role,
 		&user.TotalEarnings,
@@ -183,6 +185,9 @@ func (r *UserRepo) GetByID(ctx context.Context, id int) (*models.User, error) {
 		user.CurrentPlan = &sub
 	}
 
+	baseURL, _ := url.Parse(models.APIEndPoint)
+	baseURL.Path = path.Join(baseURL.Path, "public", "profile", user.AvatarID)
+	user.AvatarURL = baseURL.String()
 	return &user, nil
 }
 func (r *UserRepo) GetByUsername(ctx context.Context, username string) (*models.User, error) {
@@ -264,7 +269,7 @@ func (r *UserRepo) GetByUsername(ctx context.Context, username string) (*models.
 		&user.Name,
 		&user.Email,
 		&user.Mobile,
-		&user.AvatarURL,
+		&user.AvatarID,
 		&user.Status,
 		&user.Role,
 		&user.TotalEarnings,
@@ -331,8 +336,12 @@ func (r *UserRepo) GetByUsername(ctx context.Context, username string) (*models.
 		}
 
 		user.CurrentPlan = &sub
+
 	}
 
+	baseURL, _ := url.Parse(models.APIEndPoint)
+	baseURL.Path = path.Join(baseURL.Path, "public", "profile", user.AvatarID)
+	user.AvatarURL = baseURL.String()
 	return &user, nil
 }
 
@@ -415,7 +424,7 @@ func (r *UserRepo) GetByEmail(ctx context.Context, email string) (*models.User, 
 		&user.Name,
 		&user.Email,
 		&user.Mobile,
-		&user.AvatarURL,
+		&user.AvatarID,
 		&user.Status,
 		&user.Role,
 		&user.TotalEarnings,
@@ -484,6 +493,9 @@ func (r *UserRepo) GetByEmail(ctx context.Context, email string) (*models.User, 
 		user.CurrentPlan = &sub
 	}
 
+	baseURL, _ := url.Parse(models.APIEndPoint)
+	baseURL.Path = path.Join(baseURL.Path, "public", "profile", user.AvatarID)
+	user.AvatarURL = baseURL.String()
 	return &user, nil
 }
 
@@ -496,7 +508,7 @@ func (r *UserRepo) Update(ctx context.Context, user *models.User) error {
 		total_expenses = $12, address = $13, subscription_id = $14, updated_at = $15
 	WHERE id = $1`
 	_, err := r.db.Exec(ctx, query,
-		user.ID, user.Username, user.Password, user.Name, user.AvatarURL, user.Status,
+		user.ID, user.Username, user.Password, user.Name, user.AvatarID, user.Status,
 		user.Role, user.Email, user.Mobile, user.TotalEarnings, user.TotalWithdraw,
 		user.TotalExpenses, user.Address, user.SubscriptionID, time.Now(),
 	)
@@ -513,6 +525,17 @@ func (r *UserRepo) UpdateBasicInfo(ctx context.Context, user *models.User) error
 	)
 	return err
 }
+func (r *UserRepo) UpdateProfileImageExt(ctx context.Context, id int, avatarID string) error {
+	query := `
+	UPDATE users
+	SET 
+		avatar_url = $1, updated_at = $2
+	WHERE id = $3`
+	_, err := r.db.Exec(ctx, query,
+		avatarID, time.Now(), id,
+	)
+	return err
+}
 func (r *UserRepo) UpdateSubscriptionPlanByUserID(ctx context.Context, subscriptionID, userID int) error {
 	query := `
 	UPDATE users
@@ -523,7 +546,7 @@ func (r *UserRepo) UpdateSubscriptionPlanByUserID(ctx context.Context, subscript
 		), 0),
 		updated_at = $2
 	WHERE id = $3`
-	
+
 	_, err := r.db.Exec(ctx, query,
 		subscriptionID,
 		time.Now(),
@@ -565,12 +588,15 @@ func (r *UserRepo) GetAll(ctx context.Context) ([]*models.User, error) {
 	for rows.Next() {
 		var user models.User
 		if err := rows.Scan(
-			&user.ID, &user.Username, &user.Password, &user.Name, &user.AvatarURL, &user.Status,
+			&user.ID, &user.Username, &user.Password, &user.Name, &user.AvatarID, &user.Status,
 			&user.Role, &user.Email, &user.Mobile, &user.TotalEarnings, &user.TotalWithdraw,
 			&user.TotalExpenses, &user.Address, &user.SubscriptionID, &user.CreatedAt, &user.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}
+		baseURL, _ := url.Parse(models.APIEndPoint)
+		baseURL.Path = path.Join(baseURL.Path, "public", "profile", user.AvatarID)
+		user.AvatarURL = baseURL.String()
 		users = append(users, &user)
 	}
 	return users, nil

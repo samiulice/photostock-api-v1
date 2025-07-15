@@ -36,6 +36,7 @@ func (app *application) routes() http.Handler {
 			r.Get("/profile", app.Profile)       // Get currently logged-in user's profile
 			//TODO: separate update profile functionality
 			r.Put("/profile", app.UpdateProfile) // Update user profile information
+			r.Put("/profile/image", app.UpdateProfileImage) // Update user profile information
 			r.Put("/profile/deactivate", app.DeactivateProfile)        // Deactivate user profile information
 			r.Delete("/profile/delete", app.DeleteProfile) // Delete user profile information
 			// r.Put("/password", app.ChangePassword)      // Change password for logged-in user
