@@ -31,13 +31,17 @@ func (app *application) routes() http.Handler {
 		r.Post("/register", app.Register) // Register a new user
 		r.Post("/login", app.Login)       // User login
 		// r.Post("/logout", app.Logout)               // User logout
-		r.Get("/profile", app.Profile)       // Get currently logged-in user's profile
-		r.Put("/profile", app.UpdateProfile) // Update user profile information
-		// r.Put("/profile/deactivate", app.DeactivateProfile)        // Deactivate user profile information
-		r.Delete("/profile/delete", app.DeleteProfile) // Delete user profile information
-		// r.Put("/password", app.ChangePassword)      // Change password for logged-in user
-		// r.Post("/forgot-password", app.ForgotPassword) // Request password reset via email
-		// r.Post("/reset-password", app.ResetPassword)   // Reset password using token
+		r.Group(func(r chi.Router) {
+			r.Use(app.AuthUser)
+			r.Get("/profile", app.Profile)       // Get currently logged-in user's profile
+			//TODO: separate update profile functionality
+			r.Put("/profile", app.UpdateProfile) // Update user profile information
+			r.Put("/profile/deactivate", app.DeactivateProfile)        // Deactivate user profile information
+			r.Delete("/profile/delete", app.DeleteProfile) // Delete user profile information
+			// r.Put("/password", app.ChangePassword)      // Change password for logged-in user
+			// r.Post("/forgot-password", app.ForgotPassword) // Request password reset via email
+			// r.Post("/reset-password", app.ResetPassword)   // Reset password using token
+		})
 	})
 
 	// --- Media Management ---
@@ -48,7 +52,7 @@ func (app *application) routes() http.Handler {
 			r.Use(app.AuthUser)
 			r.Post("/", app.UploadMedia) // Upload new media
 			// Secure premium endpoint
-			r.Group(func(r chi.Router) {         // Regular auth check
+			r.Group(func(r chi.Router) { // Regular auth check
 				// r.Use(app.WithSubscriptionCheck) // Premium subscription check
 
 				r.Get("/premium", app.ServeMedia)
@@ -75,13 +79,19 @@ func (app *application) routes() http.Handler {
 	})
 
 	mux.Route("/api/v1/plans", func(r chi.Router) {
-		// r.Get("/",  app.GetPlans)
+		r.Get("/",  app.GetPlans)
 		r.Post("/", app.CreatePlan)
-		// r.Put("/", app.UpdatePlan)
+		r.Put("/", app.UpdatePlan)
 
 		r.Group(func(r chi.Router) {
 			r.Post("/purchase", app.PurchasePlan)
 		})
+	})
+
+	mux.Route("/api/v1/history", func(r chi.Router) {
+		r.Use(app.AuthUser)
+		r.Get("/download", app.GetDownloadHistory)
+		r.Get("/upload", app.GetUploadHistory)
 	})
 
 	return mux

@@ -502,15 +502,21 @@ func (r *UserRepo) Update(ctx context.Context, user *models.User) error {
 	)
 	return err
 }
-
-func (r *UserRepo) UpdateSubscriptionPlanByUserID(ctx context.Context, subscriptionID, id int) error {
+func (r *UserRepo) UpdateSubscriptionPlanByUserID(ctx context.Context, subscriptionID, userID int) error {
 	query := `
 	UPDATE users
 	SET 
-		subscription_id = $1, updated_at = $2
+		subscription_id = $1,
+		total_expenses = total_expenses + COALESCE((
+			SELECT price FROM subscription_plans WHERE id = $1
+		), 0),
+		updated_at = $2
 	WHERE id = $3`
+	
 	_, err := r.db.Exec(ctx, query,
-		id, subscriptionID, time.Now(),
+		subscriptionID,
+		time.Now(),
+		userID,
 	)
 	return err
 }
@@ -518,6 +524,18 @@ func (r *UserRepo) UpdateSubscriptionPlanByUserID(ctx context.Context, subscript
 func (r *UserRepo) DeleteByID(ctx context.Context, id int) error {
 	query := `DELETE FROM users WHERE id = $1`
 	_, err := r.db.Exec(ctx, query, id)
+	return err
+}
+
+func (r *UserRepo) Deactivate(ctx context.Context, id int, status bool) error {
+	query := `
+	UPDATE users
+	SET 
+		status = $2, updated_at = $3
+	WHERE id = $1`
+	_, err := r.db.Exec(ctx, query,
+		id, status, time.Now(),
+	)
 	return err
 }
 

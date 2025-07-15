@@ -10,6 +10,7 @@ CREATE TABLE subscription_plans (
     title VARCHAR(100) NOT NULL DEFAULT '',
     terms TEXT DEFAULT '',
     status BOOLEAN DEFAULT TRUE,
+    price NUMERIC(20,2) DEFAULT 0,
     download_limit INTEGER DEFAULT 0,
     expires_at INTEGER DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

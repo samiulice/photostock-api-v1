@@ -27,18 +27,6 @@ func (r *SubscriptionTypeRepo) Create(ctx context.Context, st *models.Subscripti
 	).Scan(&st.ID)
 }
 
-func (r *SubscriptionTypeRepo) GetByID(ctx context.Context, id int) (*models.SubscriptionPlan, error) {
-	query := `
-		SELECT id, title, terms, status, download_limit, time_limit::text, created_at, updated_at
-		FROM subscription_plans
-		WHERE id = $1`
-	st := &models.SubscriptionPlan{}
-	err := r.db.QueryRow(ctx, query, id).Scan(
-		&st.ID, &st.Title, &st.Terms, &st.Status, &st.DownloadLimit, &st.ExpiresAt, &st.CreatedAt, &st.UpdatedAt,
-	)
-	return st, err
-}
-
 func (r *SubscriptionTypeRepo) Update(ctx context.Context, st *models.SubscriptionPlan) error {
 	query := `
 		UPDATE subscription_plans
@@ -56,7 +44,7 @@ func (r *SubscriptionTypeRepo) Delete(ctx context.Context, id int) error {
 	return err
 }
 
-func (r *SubscriptionTypeRepo) GetAll(ctx context.Context) ([]models.SubscriptionPlan, error) {
+func (r *SubscriptionTypeRepo) GetAll(ctx context.Context) ([]*models.SubscriptionPlan, error) {
 	query := `
 		SELECT id, title, terms, status, download_limit, time_limit::text, created_at, updated_at
 		FROM subscription_plans`
@@ -66,7 +54,7 @@ func (r *SubscriptionTypeRepo) GetAll(ctx context.Context) ([]models.Subscriptio
 	}
 	defer rows.Close()
 
-	var types []models.SubscriptionPlan
+	var types []*models.SubscriptionPlan
 	for rows.Next() {
 		var st models.SubscriptionPlan
 		if err := rows.Scan(
@@ -74,7 +62,7 @@ func (r *SubscriptionTypeRepo) GetAll(ctx context.Context) ([]models.Subscriptio
 		); err != nil {
 			return nil, err
 		}
-		types = append(types, st)
+		types = append(types, &st)
 	}
 	return types, nil
 }

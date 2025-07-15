@@ -193,29 +193,64 @@ func (app *application) Profile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//Subscriptions History
-	sbh, err := app.DB.SubscriptionRepo.GetByUserID(r.Context(), user.ID)
-	if err != nil {
-		app.errorLog.Println("no subscription history available for user: ", token.Name)
+	var sbh []*models.Subscription
+	var uph []*models.UploadHistory
+	var dwh []*models.DownloadHistory
+
+	var cat []*models.MediaCategory
+	var sbp []*models.SubscriptionPlan
+
+	if user.Role == "user" {
+		//Subscriptions History
+		sbh, err = app.DB.SubscriptionRepo.GetByUserID(r.Context(), user.ID)
+		if err != nil {
+			app.errorLog.Println("no subscription history available for user: ", token.Name)
+		}
+		//upload history
+		uph, err = app.DB.UploadHistoryRepo.GetAllByUserID(r.Context(), token.ID)
+		if err != nil {
+			app.errorLog.Println("no upload history available for user: ", token.Name)
+		}
+		//download history
+		dwh, err = app.DB.DownloadHistoryRepo.GetAllByUserID(r.Context(), token.ID)
+		if err != nil {
+			app.errorLog.Println("no upload history available for user: ", token.Name)
+		}
+	} else {
+		//Subscriptions History
+		sbh, err = app.DB.SubscriptionRepo.GetAll(r.Context())
+		if err != nil {
+			app.errorLog.Println("no subscription history available for admin: ", token.Name)
+		}
+		//upload history
+		uph, err = app.DB.UploadHistoryRepo.GetAll(r.Context())
+		if err != nil {
+			app.errorLog.Println("no upload history available for admin: ", token.Name)
+		}
+		//download history
+		dwh, err = app.DB.DownloadHistoryRepo.GetAll(r.Context())
+		if err != nil {
+			app.errorLog.Println("no upload history available for admin: ", token.Name)
+		}
 	}
-	//upload history
-	uph, err := app.DB.UploadHistoryRepo.GetAllByUserID(r.Context(), token.ID)
+	cat, err = app.DB.MediaCategoryRepo.GetAll(r.Context())
 	if err != nil {
-		app.errorLog.Println("no upload history available for user: ", token.Name)
+		app.errorLog.Println("no categories available")
 	}
-	//download history
-	dwh, err := app.DB.DownloadHistoryRepo.GetAllByUserID(r.Context(), token.ID)
+	sbp, err = app.DB.SubscriptionTypeRepo.GetAll(r.Context())
 	if err != nil {
-		app.errorLog.Println("no upload history available for user: ", token.Name)
+		app.errorLog.Println("no plans available")
 	}
 	// Prepare and send response
 	response := struct {
-		Error                bool                      `json:"error"`
-		Message              string                    `json:"message"`
-		User                 *models.User              `json:"user"`
-		SubscriptionsHistory []*models.Subscription    `json:"subscription_history"`
-		DownloadHistory      []*models.DownloadHistory `json:"download_history"`
-		UploadHistory        []*models.UploadHistory   `json:"upload_history"`
+		Error                bool                       `json:"error"`
+		Message              string                     `json:"message"`
+		User                 *models.User               `json:"user"`
+		SubscriptionsHistory []*models.Subscription     `json:"subscription_history"`
+		DownloadHistory      []*models.DownloadHistory  `json:"download_history"`
+		UploadHistory        []*models.UploadHistory    `json:"upload_history"`
+		CategoryList         []*models.MediaCategory    `json:"media_categories"`
+		SubscriptionPlans    []*models.SubscriptionPlan `json:"plans"`
 	}{
 		Error:                false,
 		Message:              "user data fetched successfully",
@@ -223,9 +258,11 @@ func (app *application) Profile(w http.ResponseWriter, r *http.Request) {
 		SubscriptionsHistory: sbh,
 		DownloadHistory:      dwh,
 		UploadHistory:        uph,
+		CategoryList:         cat,
+		SubscriptionPlans:    sbp,
 	}
 
-	app.infoLog.Printf("User %s signed in successfully", user.Username)
+	app.infoLog.Printf("User %s data retrieved successfully", user.Username)
 	app.writeJSON(w, http.StatusOK, response)
 }
 
@@ -239,16 +276,27 @@ func (app *application) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 	}
 	fmt.Println("Received User data: ", user)
 	//sanitize user input
+	//name
+	//mobile
+	//address
+	//status
+
+	//username
+	//email
+	//password
+
 	user.Username = strings.Split(user.Email, "@")[0] + "_" + app.GenerateRandomAlphanumericCode(4)
 	user.Name = strings.TrimSpace(user.Name)
 	user.Password = strings.TrimSpace(user.Password)
-	//hash password
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
-	if err != nil {
-		app.badRequest(w, errors.New("Internal Server Error: Try again"))
-		return
+	if user.Password != "" {
+		//hash password
+		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
+		if err != nil {
+			app.badRequest(w, errors.New("Internal Server Error: Try again"))
+			return
+		}
+		user.Password = string(hashedPassword)
 	}
-	user.Password = string(hashedPassword)
 
 	// Update user details in the database
 	err = app.DB.UserRepo.Update(r.Context(), &user)
@@ -261,6 +309,40 @@ func (app *application) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 		Message string `json:"message"`
 	}
 
+	Resp.Error = false
+	Resp.Message = "Profile details updated successfully"
+	app.writeJSON(w, http.StatusOK, Resp)
+}
+
+func (app *application) DeactivateProfile(w http.ResponseWriter, r *http.Request) {
+	var Resp struct {
+		Error   bool   `json:"error"`
+		Message string `json:"message"`
+	}
+
+	token, ok := app.GetUserTokenFromContext(r.Context())
+
+	if !ok {
+		app.errorLog.Println("User token not found")
+		Resp.Error = true
+		Resp.Message = "Invalid token: Access denied"
+		app.writeJSON(w, http.StatusOK, Resp)
+	}
+
+	status, err := strconv.ParseBool(r.URL.Query().Get("status"))
+	if err != nil{
+		app.errorLog.Printf("invalid status: %v", status)
+		Resp.Error = true
+		Resp.Message = "Invalid account status"
+		app.writeJSON(w, http.StatusOK, Resp)
+	}
+	err = app.DB.UserRepo.Deactivate(r.Context(), token.ID, status)
+	if err != nil{
+		app.errorLog.Println("User token not found")
+		Resp.Error = true
+		Resp.Message = "Invalid token: Access denied"
+		app.writeJSON(w, http.StatusOK, Resp)
+	}
 	Resp.Error = false
 	Resp.Message = "Profile details updated successfully"
 	app.writeJSON(w, http.StatusOK, Resp)
@@ -852,7 +934,6 @@ func (app *application) ServeMedia(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-
 // --- Subscription Plan Management ---
 
 // CreatePlan creates a new subscription Plan Type to the database
@@ -874,7 +955,7 @@ func (app *application) CreatePlan(w http.ResponseWriter, r *http.Request) {
 	}
 
 	Resp.Error = false
-	Resp.Message = "Media category added successfully"
+	Resp.Message = "New Plan added successfully"
 	app.writeJSON(w, http.StatusOK, Resp)
 }
 
@@ -896,7 +977,28 @@ func (app *application) UpdatePlan(w http.ResponseWriter, r *http.Request) {
 	}
 
 	Resp.Error = false
-	Resp.Message = "Media category added successfully"
+	Resp.Message = "Plan details updated successfully"
+	app.writeJSON(w, http.StatusOK, Resp)
+}
+func (app *application) GetPlans(w http.ResponseWriter, r *http.Request) {
+	var plans []*models.SubscriptionPlan
+	var err error
+
+	plans, err = app.DB.SubscriptionTypeRepo.GetAll(r.Context())
+	if err != nil {
+		app.errorLog.Println("No plan available")
+		app.badRequest(w, errors.New("Internal Server Error: No plan available"))
+		return
+	}
+	var Resp struct {
+		Error   bool                       `json:"error"`
+		Message string                     `json:"message"`
+		Plans   []*models.SubscriptionPlan `json:"plans"`
+	}
+
+	Resp.Error = false
+	Resp.Plans = plans
+	Resp.Message = "Data fetched successfully"
 	app.writeJSON(w, http.StatusOK, Resp)
 }
 func (app *application) PurchasePlan(w http.ResponseWriter, r *http.Request) {
@@ -945,7 +1047,7 @@ func (app *application) PurchasePlan(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	sub:=&models.Subscription{
+	sub := &models.Subscription{
 		UserID:             user.ID,
 		SubscriptionPlanID: planID,
 		PaymentStatus:      "completed",
@@ -963,7 +1065,7 @@ func (app *application) PurchasePlan(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err= app.DB.UserRepo.UpdateSubscriptionPlanByUserID(r.Context(),  sub.ID, user.ID)
+	err = app.DB.UserRepo.UpdateSubscriptionPlanByUserID(r.Context(), sub.ID, user.ID)
 	if err != nil {
 		app.errorLog.Println(err)
 		Resp.Error = true
@@ -975,5 +1077,135 @@ func (app *application) PurchasePlan(w http.ResponseWriter, r *http.Request) {
 	Resp.Error = true
 	Resp.Message = "Purchase completed"
 	app.writeJSON(w, http.StatusOK, Resp)
-	return
+
+}
+
+// --- Report Management ---
+
+func (app *application) GetDownloadHistory(w http.ResponseWriter, r *http.Request) {
+	var resp struct {
+		Error           bool                      `json:"error"`
+		Message         string                    `json:"message"`
+		DownloadHistory []*models.DownloadHistory `json:"history"`
+	}
+
+	// Step 1: Extract user token from context
+	token, ok := app.GetUserTokenFromContext(r.Context())
+	if !ok {
+		app.errorLog.Println("User not found in context")
+		resp.Error = true
+		resp.Message = "Invalid token: Access Denied"
+		app.writeJSON(w, http.StatusForbidden, resp)
+		return
+	}
+
+	var (
+		history []*models.DownloadHistory
+		err     error
+	)
+
+	// Step 2: Handle based on user role
+	if token.Role == "admin" {
+		// Admins can optionally pass ?user_id to filter
+		userIDStr := strings.TrimSpace(r.URL.Query().Get("user_id"))
+
+		if userIDStr == "" {
+			// No filter, return all download history
+			history, err = app.DB.DownloadHistoryRepo.GetAll(r.Context())
+		} else {
+			// Filter by user_id
+			var userID int
+			userID, err = strconv.Atoi(userIDStr)
+			if err != nil {
+				app.errorLog.Printf("Invalid user_id query param: %v", err)
+				resp.Error = true
+				resp.Message = "Invalid user_id in query"
+				app.writeJSON(w, http.StatusBadRequest, resp)
+				return
+			}
+			history, err = app.DB.DownloadHistoryRepo.GetAllByUserID(r.Context(), userID)
+		}
+	} else {
+		// Normal users only get their own download history
+		history, err = app.DB.DownloadHistoryRepo.GetAllByUserID(r.Context(), token.ID)
+	}
+
+	// Step 3: Handle DB or logic error
+	if err != nil {
+		app.errorLog.Println("Error fetching download history:", err)
+		resp.Error = true
+		resp.Message = "Internal Server Error"
+		app.writeJSON(w, http.StatusInternalServerError, resp)
+		return
+	}
+
+	// Step 4: Successful response
+	resp.Error = false
+	resp.Message = "Download history retrieved successfully"
+	resp.DownloadHistory = history
+	app.writeJSON(w, http.StatusOK, resp)
+}
+
+func (app *application) GetUploadHistory(w http.ResponseWriter, r *http.Request) {
+	var resp struct {
+		Error         bool                    `json:"error"`
+		Message       string                  `json:"message"`
+		UploadHistory []*models.UploadHistory `json:"history"`
+	}
+
+	// Step 1: Extract user token from context
+	token, ok := app.GetUserTokenFromContext(r.Context())
+	if !ok {
+		app.errorLog.Println("User not found in context")
+		resp.Error = true
+		resp.Message = "Invalid token: Access Denied"
+		app.writeJSON(w, http.StatusForbidden, resp)
+		return
+	}
+
+	var (
+		history []*models.UploadHistory
+		err     error
+	)
+
+	// Step 2: Handle based on user role
+	if token.Role == "admin" {
+		// Admins can optionally pass ?user_id to filter
+		userIDStr := strings.TrimSpace(r.URL.Query().Get("user_id"))
+
+		if userIDStr == "" {
+			// No filter, return all upload history
+			history, err = app.DB.UploadHistoryRepo.GetAll(r.Context())
+		} else {
+			// Filter by user_id
+			var userID int
+			userID, err = strconv.Atoi(userIDStr)
+			if err != nil {
+				app.errorLog.Printf("Invalid user_id query param: %v", err)
+				resp.Error = true
+				resp.Message = "Invalid user_id in query"
+				app.writeJSON(w, http.StatusBadRequest, resp)
+				return
+			}
+			history, err = app.DB.UploadHistoryRepo.GetAllByUserID(r.Context(), userID)
+		}
+	} else {
+		// Normal users only get their own upload history
+		history, err = app.DB.UploadHistoryRepo.GetAllByUserID(r.Context(), token.ID)
+	}
+
+	// Step 3: Handle DB or logic error
+	if err != nil {
+		app.errorLog.Println("Error fetching upload history:", err)
+		resp.Error = true
+		resp.Message = "Internal Server Error"
+		app.writeJSON(w, http.StatusInternalServerError, resp)
+		return
+	}
+
+	// Step 4: Successful response
+	resp.Error = false
+	resp.Message = "Upload history retrieved successfully"
+	resp.UploadHistory = history
+	app.writeJSON(w, http.StatusOK, resp)
 }
