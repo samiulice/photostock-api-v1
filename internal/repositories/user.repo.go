@@ -60,7 +60,6 @@ func (r *UserRepo) GetByID(ctx context.Context, id int) (*models.User, error) {
 			s.id,
 			s.user_id,
 			s.subscription_plans_id,
-			s.payment_status,
 			s.payment_amount,
 			s.payment_time,
 			s.total_downloads,
@@ -73,7 +72,7 @@ func (r *UserRepo) GetByID(ctx context.Context, id int) (*models.User, error) {
 			sp.terms,
 			sp.status,
 			sp.download_limit,
-			sp.time_limit,
+			sp.expires_at,
 			sp.created_at,
 			sp.updated_at
 		FROM users u
@@ -88,10 +87,10 @@ func (r *UserRepo) GetByID(ctx context.Context, id int) (*models.User, error) {
 		plan models.SubscriptionPlan
 
 		// Nullable fields
-		subID             sql.NullInt64
-		subUserID         sql.NullInt64
-		subPlanID         sql.NullInt64
-		subPaymentStatus  sql.NullString
+		subID     sql.NullInt64
+		subUserID sql.NullInt64
+		subPlanID sql.NullInt64
+
 		subPaymentAmount  sql.NullFloat64
 		subPaymentTime    sql.NullTime
 		subTotalDownloads sql.NullInt64
@@ -130,7 +129,6 @@ func (r *UserRepo) GetByID(ctx context.Context, id int) (*models.User, error) {
 		&subID,
 		&subUserID,
 		&subPlanID,
-		&subPaymentStatus,
 		&subPaymentAmount,
 		&subPaymentTime,
 		&subTotalDownloads,
@@ -158,7 +156,6 @@ func (r *UserRepo) GetByID(ctx context.Context, id int) (*models.User, error) {
 			ID:                 int(subID.Int64),
 			UserID:             int(subUserID.Int64),
 			SubscriptionPlanID: int(subPlanID.Int64),
-			PaymentStatus:      subPaymentStatus.String,
 			PaymentAmount:      subPaymentAmount.Float64,
 			PaymentTime:        subPaymentTime.Time,
 			TotalDownloads:     int(subTotalDownloads.Int64),
@@ -213,7 +210,6 @@ func (r *UserRepo) GetByUsername(ctx context.Context, username string) (*models.
 			s.id,
 			s.user_id,
 			s.subscription_plans_id,
-			s.payment_status,
 			s.payment_amount,
 			s.payment_time,
 			s.total_downloads,
@@ -226,7 +222,7 @@ func (r *UserRepo) GetByUsername(ctx context.Context, username string) (*models.
 			sp.terms,
 			sp.status,
 			sp.download_limit,
-			sp.time_limit,
+			sp.expires_at,
 			sp.created_at,
 			sp.updated_at
 		FROM users u
@@ -244,7 +240,6 @@ func (r *UserRepo) GetByUsername(ctx context.Context, username string) (*models.
 		subID             sql.NullInt64
 		subUserID         sql.NullInt64
 		subPlanID         sql.NullInt64
-		subPaymentStatus  sql.NullString
 		subPaymentAmount  sql.NullFloat64
 		subPaymentTime    sql.NullTime
 		subTotalDownloads sql.NullInt64
@@ -283,7 +278,6 @@ func (r *UserRepo) GetByUsername(ctx context.Context, username string) (*models.
 		&subID,
 		&subUserID,
 		&subPlanID,
-		&subPaymentStatus,
 		&subPaymentAmount,
 		&subPaymentTime,
 		&subTotalDownloads,
@@ -311,7 +305,6 @@ func (r *UserRepo) GetByUsername(ctx context.Context, username string) (*models.
 			ID:                 int(subID.Int64),
 			UserID:             int(subUserID.Int64),
 			SubscriptionPlanID: int(subPlanID.Int64),
-			PaymentStatus:      subPaymentStatus.String,
 			PaymentAmount:      subPaymentAmount.Float64,
 			PaymentTime:        subPaymentTime.Time,
 			TotalDownloads:     int(subTotalDownloads.Int64),
@@ -368,7 +361,6 @@ func (r *UserRepo) GetByEmail(ctx context.Context, email string) (*models.User, 
 			s.id,
 			s.user_id,
 			s.subscription_plans_id,
-			s.payment_status,
 			s.payment_amount,
 			s.payment_time,
 			s.total_downloads,
@@ -381,7 +373,7 @@ func (r *UserRepo) GetByEmail(ctx context.Context, email string) (*models.User, 
 			sp.terms,
 			sp.status,
 			sp.download_limit,
-			sp.time_limit,
+			sp.expires_at,
 			sp.created_at,
 			sp.updated_at
 		FROM users u
@@ -396,10 +388,10 @@ func (r *UserRepo) GetByEmail(ctx context.Context, email string) (*models.User, 
 		plan models.SubscriptionPlan
 
 		// Nullable fields
-		subID             sql.NullInt64
-		subUserID         sql.NullInt64
-		subPlanID         sql.NullInt64
-		subPaymentStatus  sql.NullString
+		subID     sql.NullInt64
+		subUserID sql.NullInt64
+		subPlanID sql.NullInt64
+
 		subPaymentAmount  sql.NullFloat64
 		subPaymentTime    sql.NullTime
 		subTotalDownloads sql.NullInt64
@@ -438,7 +430,6 @@ func (r *UserRepo) GetByEmail(ctx context.Context, email string) (*models.User, 
 		&subID,
 		&subUserID,
 		&subPlanID,
-		&subPaymentStatus,
 		&subPaymentAmount,
 		&subPaymentTime,
 		&subTotalDownloads,
@@ -466,7 +457,6 @@ func (r *UserRepo) GetByEmail(ctx context.Context, email string) (*models.User, 
 			ID:                 int(subID.Int64),
 			UserID:             int(subUserID.Int64),
 			SubscriptionPlanID: int(subPlanID.Int64),
-			PaymentStatus:      subPaymentStatus.String,
 			PaymentAmount:      subPaymentAmount.Float64,
 			PaymentTime:        subPaymentTime.Time,
 			TotalDownloads:     int(subTotalDownloads.Int64),

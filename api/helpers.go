@@ -91,12 +91,10 @@ func (app *application) GenerateRandomAlphanumericCode(length int) string {
 }
 
 // GenerateSafeFilename will generate a filename for image
-func (app *application) GenerateSafeFilename(fixedName string, handler *multipart.FileHeader) string {
+func (app *application) GenerateSafeFilename(prefix string, handler *multipart.FileHeader) string {
 	ext := filepath.Ext(handler.Filename)
-	if strings.TrimSpace(fixedName) != "" {
-		ext := filepath.Ext(fixedName)
-		newFileName := strings.TrimSuffix(fixedName, ext)
-		return fmt.Sprintf("%s%s", newFileName, ext)
+	if strings.TrimSpace(prefix) != "" {
+		return fmt.Sprintf("%s%s", prefix, ext)
 	}
 	safeBase := uuid.NewString()
 	return fmt.Sprintf("%s_%d%s", safeBase, time.Now().UnixNano(), ext)

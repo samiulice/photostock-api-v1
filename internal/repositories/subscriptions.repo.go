@@ -20,13 +20,13 @@ func NewSubscriptionRepo(db *pgxpool.Pool) *SubscriptionRepo {
 func (r *SubscriptionRepo) Create(ctx context.Context, sub *models.Subscription) error {
 	query := `
 		INSERT INTO subscriptions (
-			user_id, subscription_plans_id, payment_status, payment_amount, 
+			user_id, subscription_plans_id, payment_amount, 
 			payment_time, total_downloads, status
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		VALUES ($1, $2, $3, $4, $5, $6)
 		RETURNING id`
 	return r.db.QueryRow(ctx, query,
-		sub.UserID, sub.SubscriptionPlanID, sub.PaymentStatus,
+		sub.UserID, sub.SubscriptionPlanID,
 		sub.PaymentAmount, sub.PaymentTime, sub.TotalDownloads, sub.Status,
 	).Scan(&sub.ID)
 }
@@ -35,7 +35,7 @@ func (r *SubscriptionRepo) Create(ctx context.Context, sub *models.Subscription)
 func (r *SubscriptionRepo) GetByID(ctx context.Context, id int) (*models.Subscription, error) {
 	query := `
 		SELECT s.id, s.user_id, s.subscription_plans_id,
-		       s.payment_status, s.payment_amount, s.payment_time,
+		        s.payment_amount, s.payment_time,
 		       s.total_downloads, s.status, s.created_at, s.updated_at,
 		       p.id, p.title, p.terms, p.status, p.download_limit, p.time_limit::text, p.created_at, p.updated_at
 		FROM subscriptions s
@@ -44,8 +44,7 @@ func (r *SubscriptionRepo) GetByID(ctx context.Context, id int) (*models.Subscri
 
 	sub := &models.Subscription{PlanDetails: &models.SubscriptionPlan{}}
 	err := r.db.QueryRow(ctx, query, id).Scan(
-		&sub.ID, &sub.UserID, &sub.SubscriptionPlanID,
-		&sub.PaymentStatus, &sub.PaymentAmount, &sub.PaymentTime,
+		&sub.ID, &sub.UserID, &sub.SubscriptionPlanID, &sub.PaymentAmount, &sub.PaymentTime,
 		&sub.TotalDownloads, &sub.Status, &sub.CreatedAt, &sub.UpdatedAt,
 		&sub.PlanDetails.ID, &sub.PlanDetails.Title, &sub.PlanDetails.Terms,
 		&sub.PlanDetails.Status, &sub.PlanDetails.DownloadLimit,
@@ -60,15 +59,14 @@ func (r *SubscriptionRepo) Update(ctx context.Context, sub *models.Subscription)
 		UPDATE subscriptions
 		SET user_id = $2,
 		    subscription_plans_id = $3,
-		    payment_status = $4,
-		    payment_amount = $5,
-		    payment_time = $6,
-		    total_downloads = $7,
-		    status = $8,
-		    updated_at = $9
+		    payment_amount = $4,
+		    payment_time = $5,
+		    total_downloads = $6,
+		    status = $7,
+		    updated_at = $8
 		WHERE id = $1`
 	_, err := r.db.Exec(ctx, query,
-		sub.ID, sub.UserID, sub.SubscriptionPlanID, sub.PaymentStatus,
+		sub.ID, sub.UserID, sub.SubscriptionPlanID,
 		sub.PaymentAmount, sub.PaymentTime, sub.TotalDownloads, sub.Status, time.Now(),
 	)
 	return err
@@ -85,7 +83,7 @@ func (r *SubscriptionRepo) Delete(ctx context.Context, id int) error {
 func (r *SubscriptionRepo) GetAll(ctx context.Context) ([]*models.Subscription, error) {
 	query := `
 		SELECT s.id, s.user_id, s.subscription_plans_id,
-		       s.payment_status, s.payment_amount, s.payment_time,
+		        s.payment_amount, s.payment_time,
 		       s.total_downloads, s.status, s.created_at, s.updated_at,
 		       p.id, p.title, p.terms, p.status, p.download_limit, p.time_limit::text, p.created_at, p.updated_at
 		FROM subscriptions s
@@ -103,8 +101,7 @@ func (r *SubscriptionRepo) GetAll(ctx context.Context) ([]*models.Subscription, 
 		var sub models.Subscription
 		sub.PlanDetails = &models.SubscriptionPlan{}
 		err := rows.Scan(
-			&sub.ID, &sub.UserID, &sub.SubscriptionPlanID,
-			&sub.PaymentStatus, &sub.PaymentAmount, &sub.PaymentTime,
+			&sub.ID, &sub.UserID, &sub.SubscriptionPlanID, &sub.PaymentAmount, &sub.PaymentTime,
 			&sub.TotalDownloads, &sub.Status, &sub.CreatedAt, &sub.UpdatedAt,
 			&sub.PlanDetails.ID, &sub.PlanDetails.Title, &sub.PlanDetails.Terms,
 			&sub.PlanDetails.Status, &sub.PlanDetails.DownloadLimit,
@@ -121,7 +118,7 @@ func (r *SubscriptionRepo) GetAll(ctx context.Context) ([]*models.Subscription, 
 func (r *SubscriptionRepo) GetByUserID(ctx context.Context, userID int) ([]*models.Subscription, error) {
 	query := `
 		SELECT s.id, s.user_id, s.subscription_plans_id,
-		       s.payment_status, s.payment_amount, s.payment_time,
+		        s.payment_amount, s.payment_time,
 		       s.total_downloads, s.status, s.created_at, s.updated_at,
 		       p.id, p.title, p.terms, p.status, p.download_limit, p.time_limit::text, p.created_at, p.updated_at
 		FROM subscriptions s
@@ -140,8 +137,7 @@ func (r *SubscriptionRepo) GetByUserID(ctx context.Context, userID int) ([]*mode
 		var sub models.Subscription
 		sub.PlanDetails = &models.SubscriptionPlan{}
 		err := rows.Scan(
-			&sub.ID, &sub.UserID, &sub.SubscriptionPlanID,
-			&sub.PaymentStatus, &sub.PaymentAmount, &sub.PaymentTime,
+			&sub.ID, &sub.UserID, &sub.SubscriptionPlanID, &sub.PaymentAmount, &sub.PaymentTime,
 			&sub.TotalDownloads, &sub.Status, &sub.CreatedAt, &sub.UpdatedAt,
 			&sub.PlanDetails.ID, &sub.PlanDetails.Title, &sub.PlanDetails.Terms,
 			&sub.PlanDetails.Status, &sub.PlanDetails.DownloadLimit,

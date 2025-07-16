@@ -19,8 +19,10 @@ CREATE TABLE subscription_plans (
 
 CREATE TABLE media_categories (
     id SERIAL PRIMARY KEY,
-    name VARCHAR(100) NOT NULL DEFAULT '',
-    thumbnail_url TEXT DEFAULT '',
+    name VARCHAR(100) UNIQUE NOT NULL DEFAULT '',
+    thumbnail_uuid TEXT DEFAULT '',
+    total_uploads INTEGER DEFAULT 0,
+    total_downloads INTEGER DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -32,7 +34,6 @@ CREATE TABLE users (
     password TEXT NOT NULL DEFAULT '',
     name VARCHAR(100) DEFAULT '',
     avatar_url TEXT DEFAULT '',
-    avatar_ext VARCHAR(50) NOT NULL DEFAULT '.jpg',
     status BOOLEAN DEFAULT TRUE,
     role VARCHAR(50) DEFAULT 'user',
     email VARCHAR(100) UNIQUE NOT NULL DEFAULT '',

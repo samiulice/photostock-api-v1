@@ -57,6 +57,8 @@ type MediaCategory struct {
 	ID           int       `json:"id"`
 	Name         string    `json:"name"`
 	ThumbnailURL string    `json:"thumbnail_url"`
+	UploadCount int    `json:"upload_count"`
+	DownloadCount int    `json:"download_count"`
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
 }
@@ -87,7 +89,6 @@ type Subscription struct {
 	UserID             int               `json:"user_id"`
 	SubscriptionPlanID int               `json:"subscription_plan_id"`
 	PlanDetails        *SubscriptionPlan `json:"plan_details"`
-	PaymentStatus      string            `json:"payment_status"`
 	PaymentAmount      float64           `json:"payment_amount"`
 	PaymentTime        time.Time         `json:"payment_time"`
 	TotalDownloads     int               `json:"total_downloads"`

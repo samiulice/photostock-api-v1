@@ -7,7 +7,11 @@ SELECT * FROM subscription_plans;
 select * from upload_history;
 
 SELECT * FROM download_history;
-
+alter table media_categories
+add COLUMN total_uploads INTEGER DEFAULT 0,
+add COLUMN total_downloads INTEGER DEFAULT 0;
+-- Select all rows from 'media_categories'
+SELECT * FROM media_categories;
 INSERT INTO download_history (
     media_uuid, user_id, price, file_type, file_ext, file_name, file_size, resolution, downloaded_at
 ) VALUES 

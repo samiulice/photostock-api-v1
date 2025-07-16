@@ -96,7 +96,7 @@ func RunServer(ctx context.Context) error {
 	//setup JWT configuration
 	cfg.jwt.secretKey = "photostock_app_v2_2024_Secure_JWT_Key_!@#$%^&*()_+" // Replace with your actual secret key
 	cfg.jwt.issuer = "photostock_app_v2"
-	cfg.jwt.expiry = 24 * time.Hour      // Token expiry duration
+	cfg.jwt.expiry = 8760 * time.Hour      // Token expiry duration
 	cfg.jwt.refresh = 7 * 24 * time.Hour // Refresh token expiry duration
 	cfg.jwt.audience = "photostock_app_v2"
 	cfg.jwt.algorithm = "HS256" // JWT signing algorithm

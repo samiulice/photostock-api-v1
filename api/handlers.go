@@ -309,9 +309,9 @@ func (app *application) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 
 func (app *application) UpdateProfileImage(w http.ResponseWriter, r *http.Request) {
 	var Resp struct {
-		Error   bool   `json:"error"`
-		Message string `json:"message"`
-		User *models.User `json:"user"`
+		Error   bool         `json:"error"`
+		Message string       `json:"message"`
+		User    *models.User `json:"user"`
 	}
 	err := r.ParseMultipartForm(20 << 20) // 20MB max
 	if err != nil {
@@ -351,7 +351,7 @@ func (app *application) UpdateProfileImage(w http.ResponseWriter, r *http.Reques
 	}
 
 	uploadDir := filepath.Join(".", "assets", "images", "public", "profile")
-	
+
 	// Check if folder exists
 	if _, err := os.Stat(uploadDir); os.IsNotExist(err) {
 		// Folder doesn't exist, create it
@@ -403,7 +403,7 @@ func (app *application) UpdateProfileImage(w http.ResponseWriter, r *http.Reques
 
 	Resp.Error = false
 	Resp.Message = "Image uploaded successfully"
-	
+
 	//update avatar url
 	baseURL, _ := url.Parse(models.APIEndPoint)
 	baseURL.Path = path.Join(baseURL.Path, "public", "profile", filename)
@@ -513,6 +513,14 @@ func (app *application) GetMediaCategories(w http.ResponseWriter, r *http.Reques
 				Name: "All",
 			})
 	}
+
+	for _, v := range categories {
+		if v != nil {
+			baseURL, _ := url.Parse(models.APIEndPoint)
+			baseURL.Path = path.Join(baseURL.Path, "public", "categories", v.ThumbnailURL)
+			v.ThumbnailURL = baseURL.String()
+		}
+	}
 	Resp.Error = false
 	Resp.MediaCategories = append(Resp.MediaCategories, categories...)
 	Resp.Message = "Data fetched successfully"
@@ -588,8 +596,9 @@ func (app *application) CreateMediaCategory(w http.ResponseWriter, r *http.Reque
 		app.writeJSON(w, http.StatusInternalServerError, Resp)
 		return
 	}
+	app.infoLog.Println(filename)
 	//resize the image to 540x540 px
-	err = utils.ResizeImageInPlace(dstPath, 540, 540)
+	err = utils.ResizeImage(dstPath, dstPath, 540, 540, true)
 	if err != nil {
 		app.errorLog.Println("Error resizing file: ", err.Error())
 		Resp.Error = true
@@ -601,7 +610,7 @@ func (app *application) CreateMediaCategory(w http.ResponseWriter, r *http.Reque
 	//save metadata to the backend
 	category := models.MediaCategory{
 		Name:         name,
-		ThumbnailURL: models.APIEndPoint + path.Join("images", "public", "categories", filename),
+		ThumbnailURL: filename,
 	}
 	err = app.DB.MediaCategoryRepo.Create(r.Context(), &category)
 	if err != nil {
@@ -698,7 +707,9 @@ func (app *application) ListMedia(w http.ResponseWriter, r *http.Request) {
 		_, err := os.Stat(filepath.Join(fileDir, "thumb_"+v.MediaUUID))
 		if err == nil {
 			//TODO:
-			v.MediaURL = models.APIEndPoint + path.Join("images", "public", "thumbnails", "thumb_"+v.MediaUUID)
+			baseURL, _ := url.Parse(models.APIEndPoint)
+			baseURL.Path = path.Join(baseURL.Path, "public", "thumbnails", "thumb_"+v.MediaUUID)
+			v.MediaURL = baseURL.String()
 			v.MediaUUID = ""
 			Resp.Medias = append(Resp.Medias, v)
 			app.infoLog.Println(*v)
@@ -744,8 +755,9 @@ func (app *application) FetchMediaDetails(w http.ResponseWriter, r *http.Request
 	fileDir := filepath.Join(".", "assets", "images", "public", "thumbnails")
 	_, err = os.Stat(filepath.Join(fileDir, "thumb_"+media.MediaUUID))
 	if err == nil {
-		//TODO:
-		media.MediaURL = models.APIEndPoint + path.Join("images", "public", "thumbnails", "thumb_"+media.MediaUUID)
+		baseURL, _ := url.Parse(models.APIEndPoint)
+		baseURL.Path = path.Join(baseURL.Path, "public", "thumbnails", "thumb_"+media.MediaUUID)
+		media.MediaURL = baseURL.String()
 		media.MediaUUID = ""
 		Resp.Media = media
 	} else {
@@ -794,9 +806,9 @@ func (app *application) UploadMedia(w http.ResponseWriter, r *http.Request) {
 	imageType := "premium"
 	if strings.ToLower(license_type) == "free" {
 		licenseType = 0
-		imageType = filepath.Join("public", "free")
+		imageType = "public"
 	}
-	licOk := strings.ToLower(license_type) == "free" || strings.ToLower(license_type) == "paid"
+	licOk := strings.ToLower(license_type) == "free" || strings.ToLower(license_type) == "premium"
 	app.infoLog.Println("title:", title, "Description: ", description, "catid: ", catId, "lic_type", license_type)
 	// Validate fields
 	if catErr != nil {
@@ -881,7 +893,7 @@ func (app *application) UploadMedia(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Save metadata to DB
-	image := &models.Media{
+	imageMetadata := &models.Media{
 		MediaTitle:   title,
 		MediaUUID:    filename,
 		Description:  description,
@@ -890,7 +902,16 @@ func (app *application) UploadMedia(w http.ResponseWriter, r *http.Request) {
 		UploaderID:   token.ID,
 		UploaderName: token.Name,
 	}
-	err = app.DB.MediaRepo.Create(r.Context(), image)
+	err = app.DB.MediaRepo.Create(r.Context(), imageMetadata)
+	if err != nil {
+		app.errorLog.Println("Could not save image metadata", err.Error())
+		Resp.Error = true
+		Resp.Message = "Could not save image metadata"
+		app.writeJSON(w, http.StatusInternalServerError, Resp)
+		return
+	}
+
+	err = app.DB.MediaCategoryRepo.IncrementDownloads(r.Context(), int64(categoryId))
 	if err != nil {
 		app.errorLog.Println("Could not save image metadata", err.Error())
 		Resp.Error = true
@@ -902,10 +923,10 @@ func (app *application) UploadMedia(w http.ResponseWriter, r *http.Request) {
 	h := &models.UploadHistory{
 		MediaUUID:  filename,
 		UserID:     token.ID,
-		FileType: utils.GetFileType(handler),
-		FileExt: filepath.Ext(filename),
-		FileName: title,
-		FileSize: utils.GetFormattedFileSize(handler),
+		FileType:   utils.GetFileType(handler),
+		FileExt:    filepath.Ext(filename),
+		FileName:   title,
+		FileSize:   utils.GetFormattedFileSize(handler),
 		Resolution: utils.GetImageResolutionString(handler),
 		UploadedAt: time.Now(),
 	}
@@ -1052,6 +1073,11 @@ func (app *application) ServeMedia(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		app.errorLog.Printf("Failed to log media download for user %d: %v", user.ID, err)
 	}
+	// 11. Optionally: Increment download counts in media categories table (in database or analytics system)
+	err = app.DB.MediaCategoryRepo.DecrementDownloads(r.Context(), int64(media.CategoryID))
+	if err != nil {
+		app.errorLog.Printf("Failed to log media download for user %d: %v", user.ID, err)
+	}
 }
 
 // --- Subscription Plan Management ---
@@ -1059,9 +1085,9 @@ func (app *application) ServeMedia(w http.ResponseWriter, r *http.Request) {
 // CreatePlan creates a new subscription Plan Type to the database
 func (app *application) CreatePlan(w http.ResponseWriter, r *http.Request) {
 	var Resp struct {
-		Error   bool   `json:"error"`
-		Message string `json:"message"`
-		Plan models.SubscriptionPlan `json:"plan"`
+		Error   bool                    `json:"error"`
+		Message string                  `json:"message"`
+		Plan    models.SubscriptionPlan `json:"plan"`
 	}
 	var p models.SubscriptionPlan
 	err := app.readJSON(w, r, &p)
@@ -1174,7 +1200,6 @@ func (app *application) PurchasePlan(w http.ResponseWriter, r *http.Request) {
 	sub := &models.Subscription{
 		UserID:             user.ID,
 		SubscriptionPlanID: planID,
-		PaymentStatus:      "completed",
 		PaymentAmount:      10000,
 		PaymentTime:        time.Now(),
 		TotalDownloads:     0,
