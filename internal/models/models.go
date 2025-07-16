@@ -117,17 +117,24 @@ type UploadHistory struct {
 	MediaUUID  string    `json:"media_id"`
 	UserID     int       `json:"user_id"` //uploader
 	FileType string `json:"file_type"`
+	FileExt string `json:"file_ext"`
 	FileName string `json:"file_name"`
 	FileSize string `json:"file_size"`
+	Resolution string `json:"resolution"`
 	UploadedAt time.Time `json:"uploaded_at"`
 	CreatedAt  time.Time `json:"created_at"`
 	UpdatedAt  time.Time `json:"updated_at"`
 }
 type DownloadHistory struct {
-	ID           int       `json:"id"`
-	MediaUUID    string    `json:"media_id"`
-	UserID       int       `json:"user_id"` //downloader
+	ID         int       `json:"id"`
+	MediaUUID  string    `json:"media_id"`
+	UserID     int       `json:"user_id"` //uploader
+	FileType string `json:"file_type"`
+	FileExt string `json:"file_ext"`
+	FileName string `json:"file_name"`
+	FileSize string `json:"file_size"`
+	Resolution string `json:"resolution"`
 	DownloadedAt time.Time `json:"downloaded_at"`
-	CreatedAt    time.Time `json:"created_at"`
-	UpdatedAt    time.Time `json:"updated_at"`
+	CreatedAt  time.Time `json:"created_at"`
+	UpdatedAt  time.Time `json:"updated_at"`
 }

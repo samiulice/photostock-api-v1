@@ -1,11 +1,12 @@
 package utils
 
 import (
-	"slices"
 	"fmt"
+	"image"
 	"mime/multipart"
 	"net/http"
 	"path/filepath"
+	"slices"
 	"strings"
 )
 
@@ -78,6 +79,23 @@ func GetFileType(fileHeader *multipart.FileHeader) string {
 	}
 
 	return "Others"
+}
+
+
+// GetImageResolutionFromFileHeader returns resolution as "WIDTHxHEIGHTpx"
+func GetImageResolutionString(fileHeader *multipart.FileHeader) string {
+	file, err := fileHeader.Open()
+	if err != nil {
+		return "Unknown"
+	}
+	defer file.Close()
+
+	imgCfg, _, err := image.DecodeConfig(file)
+	if err != nil {
+		return "Unknown"
+	}
+
+	return fmt.Sprintf("%dx%dpx", imgCfg.Width, imgCfg.Height)
 }
 
  

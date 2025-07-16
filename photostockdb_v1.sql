@@ -92,6 +92,11 @@ CREATE TABLE download_history (
     media_uuid VARCHAR(255) NOT NULL DEFAULT '',
     user_id INTEGER NOT NULL,
     price NUMERIC(10, 2) DEFAULT 0,
+    file_type VARCHAR(50) NOT NULL DEFAULT '',
+    file_ext VARCHAR(50) NOT NULL DEFAULT '',
+    file_name VARCHAR(255) NOT NULL DEFAULT '',
+    file_size VARCHAR(50) NOT NULL DEFAULT '',
+    resolution VARCHAR(50) DEFAULT '',  -- e.g. "1920x1080px"
     downloaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -105,14 +110,22 @@ CREATE TABLE upload_history (
     id SERIAL PRIMARY KEY,
     media_uuid VARCHAR(255) NOT NULL DEFAULT '',
     user_id INTEGER NOT NULL,
+    file_type VARCHAR(50) NOT NULL DEFAULT '',
+    file_ext VARCHAR(50) NOT NULL DEFAULT '',
+    file_name VARCHAR(255) NOT NULL DEFAULT '',
+    file_size VARCHAR(50) NOT NULL DEFAULT '',
+    resolution VARCHAR(50) DEFAULT '',  -- e.g. "1920x1080px"
     uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
     CONSTRAINT fk_upload_media FOREIGN KEY (media_uuid)
         REFERENCES medias (media_uuid) ON DELETE CASCADE,
+
     CONSTRAINT fk_upload_user FOREIGN KEY (user_id)
         REFERENCES users (id) ON DELETE CASCADE
 );
+
 
 -- Create indexes
 CREATE INDEX idx_users_email ON users (email);

@@ -16,24 +16,27 @@ type UploadHistoryRepo struct {
 func NewUploadHistoryRepo(db *pgxpool.Pool) *UploadHistoryRepo {
 	return &UploadHistoryRepo{db: db}
 }
+
 func (r *UploadHistoryRepo) Create(ctx context.Context, h *models.UploadHistory) error {
 	query := `
-	INSERT INTO upload_history (media_uuid, user_id, file_type, file_name, file_size, uploaded_at)
-	VALUES ($1, $2, $3, $4, $5, $6)
+	INSERT INTO upload_history (media_uuid, user_id, file_type, file_ext, file_name, file_size, resolution, uploaded_at)
+	VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 	RETURNING id`
 	return r.db.QueryRow(ctx, query,
 		h.MediaUUID,
 		h.UserID,
 		h.FileType,
+		h.FileExt,
 		h.FileName,
 		h.FileSize,
+		h.Resolution,
 		h.UploadedAt,
 	).Scan(&h.ID)
 }
 
 func (r *UploadHistoryRepo) GetByID(ctx context.Context, id int) (*models.UploadHistory, error) {
 	query := `
-	SELECT id, media_uuid, user_id, file_type, file_name, file_size, uploaded_at, created_at, updated_at
+	SELECT id, media_uuid, user_id, file_type, file_ext, file_name, file_size, resolution, uploaded_at, created_at, updated_at
 	FROM upload_history
 	WHERE id = $1`
 	h := &models.UploadHistory{}
@@ -42,8 +45,10 @@ func (r *UploadHistoryRepo) GetByID(ctx context.Context, id int) (*models.Upload
 		&h.MediaUUID,
 		&h.UserID,
 		&h.FileType,
+		&h.FileExt,
 		&h.FileName,
 		&h.FileSize,
+		&h.Resolution,
 		&h.UploadedAt,
 		&h.CreatedAt,
 		&h.UpdatedAt,
@@ -54,15 +59,17 @@ func (r *UploadHistoryRepo) GetByID(ctx context.Context, id int) (*models.Upload
 func (r *UploadHistoryRepo) Update(ctx context.Context, h *models.UploadHistory) error {
 	query := `
 	UPDATE upload_history
-	SET media_uuid = $1, user_id = $2, file_type = $3, file_name = $4, file_size = $5,
-	uploaded_at = $6, updated_at = $7
-	WHERE id = $8`
+	SET media_uuid = $1, user_id = $2, file_type = $3, file_ext = $4, file_name = $5, file_size = $6,
+	    resolution = $7, uploaded_at = $8, updated_at = $9
+	WHERE id = $10`
 	_, err := r.db.Exec(ctx, query,
 		h.MediaUUID,
 		h.UserID,
 		h.FileType,
+		h.FileExt,
 		h.FileName,
 		h.FileSize,
+		h.Resolution,
 		h.UploadedAt,
 		time.Now(),
 		h.ID,
@@ -77,7 +84,9 @@ func (r *UploadHistoryRepo) Delete(ctx context.Context, id int) error {
 }
 
 func (r *UploadHistoryRepo) GetAll(ctx context.Context) ([]*models.UploadHistory, error) {
-	query := `SELECT id, media_uuid, user_id, file_type, file_name, file_size, uploaded_at, created_at, updated_at FROM upload_history`
+	query := `
+	SELECT id, media_uuid, user_id, file_type, file_ext, file_name, file_size, resolution, uploaded_at, created_at, updated_at
+	FROM upload_history`
 	rows, err := r.db.Query(ctx, query)
 	if err != nil {
 		return nil, err
@@ -92,8 +101,10 @@ func (r *UploadHistoryRepo) GetAll(ctx context.Context) ([]*models.UploadHistory
 			&h.MediaUUID,
 			&h.UserID,
 			&h.FileType,
+			&h.FileExt,
 			&h.FileName,
 			&h.FileSize,
+			&h.Resolution,
 			&h.UploadedAt,
 			&h.CreatedAt,
 			&h.UpdatedAt,
@@ -106,7 +117,10 @@ func (r *UploadHistoryRepo) GetAll(ctx context.Context) ([]*models.UploadHistory
 }
 
 func (r *UploadHistoryRepo) GetAllByUserID(ctx context.Context, id int) ([]*models.UploadHistory, error) {
-	query := `SELECT id, media_uuid, user_id, file_type, file_name, file_size, uploaded_at, created_at, updated_at FROM upload_history WHERE user_id = $1`
+	query := `
+	SELECT id, media_uuid, user_id, file_type, file_ext, file_name, file_size, resolution, uploaded_at, created_at, updated_at
+	FROM upload_history
+	WHERE user_id = $1`
 	rows, err := r.db.Query(ctx, query, id)
 	if err != nil {
 		return nil, err
@@ -121,8 +135,10 @@ func (r *UploadHistoryRepo) GetAllByUserID(ctx context.Context, id int) ([]*mode
 			&h.MediaUUID,
 			&h.UserID,
 			&h.FileType,
+			&h.FileExt,
 			&h.FileName,
 			&h.FileSize,
+			&h.Resolution,
 			&h.UploadedAt,
 			&h.CreatedAt,
 			&h.UpdatedAt,

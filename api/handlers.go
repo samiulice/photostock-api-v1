@@ -899,22 +899,14 @@ func (app *application) UploadMedia(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// ID         int       `json:"id"`
-	// MediaUUID  string    `json:"media_id"`
-	// UserID     int       `json:"user_id"` //uploader
-	// FileType string `json:"file_type"`
-	// FileName string `json:"file_name"`
-	// FileSize string `json:"file_size"`
-	// UploadedAt time.Time `json:"uploaded_at"`
-	// CreatedAt  time.Time `json:"created_at"`
-	// UpdatedAt  time.Time `json:"updated_at"`
-
 	h := &models.UploadHistory{
 		MediaUUID:  filename,
 		UserID:     token.ID,
 		FileType: utils.GetFileType(handler),
+		FileExt: filepath.Ext(filename),
 		FileName: title,
 		FileSize: utils.GetFormattedFileSize(handler),
+		Resolution: utils.GetImageResolutionString(handler),
 		UploadedAt: time.Now(),
 	}
 	err = app.DB.UploadHistoryRepo.Create(r.Context(), h)
