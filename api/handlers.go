@@ -369,9 +369,9 @@ func (app *application) UpdateProfileImage(w http.ResponseWriter, r *http.Reques
 	_ = os.Remove(filepath.Join(uploadDir, user.AvatarID))
 
 	// Generate safe filename
-	filename := app.GenerateSafeFilename(user.AvatarID, handler)
+	filename := app.GenerateSafeFilename("", handler)
 
-	err = app.DB.UserRepo.UpdateProfileImageExt(r.Context(), user.ID, filename)
+	err = app.DB.UserRepo.UpdateProfileAvatarURL(r.Context(), user.ID, filename)
 	if err != nil {
 		app.errorLog.Println("Could not create upload image:", err.Error())
 		Resp.Error = true
@@ -406,7 +406,7 @@ func (app *application) UpdateProfileImage(w http.ResponseWriter, r *http.Reques
 	
 	//update avatar url
 	baseURL, _ := url.Parse(models.APIEndPoint)
-	baseURL.Path = path.Join(baseURL.Path, "public", "profile", user.AvatarID)
+	baseURL.Path = path.Join(baseURL.Path, "public", "profile", filename)
 	user.AvatarURL = baseURL.String()
 
 	Resp.User = user
@@ -898,9 +898,23 @@ func (app *application) UploadMedia(w http.ResponseWriter, r *http.Request) {
 		app.writeJSON(w, http.StatusInternalServerError, Resp)
 		return
 	}
+
+	// ID         int       `json:"id"`
+	// MediaUUID  string    `json:"media_id"`
+	// UserID     int       `json:"user_id"` //uploader
+	// FileType string `json:"file_type"`
+	// FileName string `json:"file_name"`
+	// FileSize string `json:"file_size"`
+	// UploadedAt time.Time `json:"uploaded_at"`
+	// CreatedAt  time.Time `json:"created_at"`
+	// UpdatedAt  time.Time `json:"updated_at"`
+
 	h := &models.UploadHistory{
 		MediaUUID:  filename,
 		UserID:     token.ID,
+		FileType: utils.GetFileType(handler),
+		FileName: title,
+		FileSize: utils.GetFormattedFileSize(handler),
 		UploadedAt: time.Now(),
 	}
 	err = app.DB.UploadHistoryRepo.Create(r.Context(), h)

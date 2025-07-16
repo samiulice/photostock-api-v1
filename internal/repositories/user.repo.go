@@ -525,7 +525,7 @@ func (r *UserRepo) UpdateBasicInfo(ctx context.Context, user *models.User) error
 	)
 	return err
 }
-func (r *UserRepo) UpdateProfileImageExt(ctx context.Context, id int, avatarID string) error {
+func (r *UserRepo) UpdateProfileAvatarURL(ctx context.Context, id int, avatarID string) error {
 	query := `
 	UPDATE users
 	SET 
