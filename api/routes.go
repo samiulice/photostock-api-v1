@@ -33,12 +33,12 @@ func (app *application) routes() http.Handler {
 		// r.Post("/logout", app.Logout)               // User logout
 		r.Group(func(r chi.Router) {
 			r.Use(app.AuthUser)
-			r.Get("/profile", app.Profile)       // Get currently logged-in user's profile
+			r.Get("/profile", app.Profile) // Get currently logged-in user's profile
 			//TODO: separate update profile functionality
-			r.Put("/profile", app.UpdateProfile) // Update user profile information
-			r.Put("/profile/image", app.UpdateProfileImage) // Update user profile information
-			r.Put("/profile/deactivate", app.DeactivateProfile)        // Deactivate user profile information
-			r.Delete("/profile/delete", app.DeleteProfile) // Delete user profile information
+			r.Put("/profile", app.UpdateProfile)                // Update user profile information
+			r.Put("/profile/image", app.UpdateProfileImage)     // Update user profile information
+			r.Put("/profile/deactivate", app.DeactivateProfile) // Deactivate user profile information
+			r.Delete("/profile/delete", app.DeleteProfile)      // Delete user profile information
 			// r.Put("/password", app.ChangePassword)      // Change password for logged-in user
 			// r.Post("/forgot-password", app.ForgotPassword) // Request password reset via email
 			// r.Post("/reset-password", app.ResetPassword)   // Reset password using token
@@ -71,7 +71,7 @@ func (app *application) routes() http.Handler {
 	mux.Route("/api/v1/categories", func(r chi.Router) {
 		r.Get("/", app.GetMediaCategories) // List all categories
 		r.Group(func(r chi.Router) {
-			r.Use(app.AuthUser,app.AuthAdmin)
+			r.Use(app.AuthUser, app.AuthAdmin)
 			r.Post("/", app.CreateMediaCategory)   // Create a new category
 			r.Put("/", app.UpdateMediaCategory)    // Update an existing category
 			r.Delete("/", app.DeleteMediaCategory) // Delete a category
@@ -79,12 +79,17 @@ func (app *application) routes() http.Handler {
 	})
 
 	mux.Route("/api/v1/plans", func(r chi.Router) {
-		r.Get("/",  app.GetPlans)
-		r.Post("/", app.CreatePlan)
-		r.Put("/", app.UpdatePlan)
+		r.Get("/", app.GetPlans)
 
 		r.Group(func(r chi.Router) {
+			r.Use(app.AuthUser)
 			r.Post("/purchase", app.PurchasePlan)
+
+			r.Group(func(r chi.Router) {
+				r.Use(app.AuthAdmin)
+				r.Post("/", app.CreatePlan)
+				r.Put("/", app.UpdatePlan)
+			})
 		})
 	})
 

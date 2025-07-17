@@ -90,13 +90,11 @@ func (app *application) Register(w http.ResponseWriter, r *http.Request) {
 		User:    &user,
 	}
 
-	app.infoLog.Println("Registration successful. Auto sign-in complete")
 	app.writeJSON(w, http.StatusOK, response)
 }
 
 // generateSignedToken generate a token string for implementing JWT
 func generateSignedToken(user *models.User) (string, error) {
-	app.infoLog.Println("signed in: ", user)
 	// Create JWT claims
 	claims := jwt.MapClaims{
 		"id":       user.ID,
@@ -138,7 +136,6 @@ func (app *application) Login(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-	app.infoLog.Println("logged user: ", validUser)
 
 	// Check if user account is active
 	if !validUser.Status {
@@ -290,7 +287,6 @@ func (app *application) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 	user.Email = strings.TrimSpace(user.Email)
 	user.Address = strings.TrimSpace(user.Address)
 
-	app.infoLog.Println(user)
 	// Update user details in the database
 	err = app.DB.UserRepo.UpdateBasicInfo(r.Context(), &user)
 	if err != nil {
@@ -596,7 +592,7 @@ func (app *application) CreateMediaCategory(w http.ResponseWriter, r *http.Reque
 		app.writeJSON(w, http.StatusInternalServerError, Resp)
 		return
 	}
-	app.infoLog.Println(filename)
+
 	//resize the image to 540x540 px
 	err = utils.ResizeImage(dstPath, dstPath, 540, 540, true)
 	if err != nil {
@@ -684,7 +680,6 @@ func (app *application) ListMedia(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	app.infoLog.Println("Fetching ", category)
 	var list []*models.Media
 
 	//get the images metadata from database
@@ -712,7 +707,6 @@ func (app *application) ListMedia(w http.ResponseWriter, r *http.Request) {
 			v.MediaURL = baseURL.String()
 			v.MediaUUID = ""
 			Resp.Medias = append(Resp.Medias, v)
-			app.infoLog.Println(*v)
 		} else {
 			app.errorLog.Println(*v)
 		}
@@ -806,10 +800,9 @@ func (app *application) UploadMedia(w http.ResponseWriter, r *http.Request) {
 	imageType := "premium"
 	if strings.ToLower(license_type) == "free" {
 		licenseType = 0
-		imageType = "public"
+		imageType = "free"
 	}
 	licOk := strings.ToLower(license_type) == "free" || strings.ToLower(license_type) == "premium"
-	app.infoLog.Println("title:", title, "Description: ", description, "catid: ", catId, "lic_type", license_type)
 	// Validate fields
 	if catErr != nil {
 		app.errorLog.Println("category id error fields: ", catErr)
@@ -901,6 +894,11 @@ func (app *application) UploadMedia(w http.ResponseWriter, r *http.Request) {
 		LicenseType:  licenseType,
 		UploaderID:   token.ID,
 		UploaderName: token.Name,
+		FileType:     utils.GetFileType(handler),
+		FileExt:      filepath.Ext(filename),
+		FileName:     title,
+		FileSize:     utils.GetFormattedFileSize(handler),
+		Resolution:   utils.GetImageResolutionString(handler),
 	}
 	err = app.DB.MediaRepo.Create(r.Context(), imageMetadata)
 	if err != nil {
@@ -950,44 +948,34 @@ func (app *application) ServeMedia(w http.ResponseWriter, r *http.Request) {
 		Message string `json:"message"`
 	}
 
-	// 1. Validate media UUID
+	// 1. Validate media ID
 	id, err := strconv.Atoi(strings.TrimSpace(r.URL.Query().Get("id")))
-
-	if err != nil {
-		app.errorLog.Println("No media id provided")
+	if err != nil || id <= 0 {
+		app.errorLog.Println("Invalid or missing media id")
 		Resp.Error = true
-		Resp.Message = "Invalid or missing media id"
+		Resp.Message = "Invalid or missing media ID"
 		app.writeJSON(w, http.StatusBadRequest, Resp)
 		return
 	}
 
-	// 2. Get media info from DB
+	// 2. Get media from DB
 	media, err := app.DB.MediaRepo.GetByID(r.Context(), id)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			app.errorLog.Printf("Invalid media_uuid: %d", id)
+		if errors.Is(err, sql.ErrNoRows) {
+			app.errorLog.Printf("Media not found for ID: %d", id)
 			Resp.Error = true
-			Resp.Message = "Invalid media ID"
-			app.writeJSON(w, http.StatusBadRequest, Resp)
+			Resp.Message = "Media not found"
+			app.writeJSON(w, http.StatusNotFound, Resp)
 			return
 		}
-		app.errorLog.Println("Error fetching media:", err)
+		app.errorLog.Println("Database error fetching media:", err)
 		Resp.Error = true
-		Resp.Message = "Internal Server Error: Could not retrieve media info"
+		Resp.Message = "Could not retrieve media"
 		app.writeJSON(w, http.StatusInternalServerError, Resp)
 		return
 	}
 
-	// 3. Redirect free images
-	if media.LicenseType == 0 {
-		app.infoLog.Println("Redirecting to free image download")
-		Resp.Error = false
-		Resp.Message = models.APIEndPoint + path.Join("images", "free", media.MediaUUID)
-		app.writeJSON(w, http.StatusOK, Resp)
-		return
-	}
-
-	// 4. Get user from context
+	// 3. Get user from context
 	token, ok := app.GetUserTokenFromContext(r.Context())
 	if !ok {
 		app.errorLog.Println("User token not found in context")
@@ -997,52 +985,101 @@ func (app *application) ServeMedia(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 5. Get user from DB
+	// 4. Fetch user from DB
 	user, err := app.DB.UserRepo.GetByID(r.Context(), token.ID)
 	if err != nil {
-		app.errorLog.Println("Failed to load user:", err)
+		app.errorLog.Printf("Failed to load user ID %d: %v", token.ID, err)
 		Resp.Error = true
-		Resp.Message = "Access Denied: Could not load user"
+		Resp.Message = "Could not load user"
 		app.writeJSON(w, http.StatusInternalServerError, Resp)
 		return
 	}
 
-	// 6. Validate subscription
-	plan := user.CurrentPlan
-	if plan == nil || plan.PlanDetails == nil || !plan.Status {
-		app.errorLog.Printf("User %d has no active subscription", user.ID)
+	// 5. If media is premium, check subscription
+	if media.LicenseType == 1 {
+		plan := user.CurrentSubscription
+		if plan == nil || plan.PlanDetails == nil || !plan.Status {
+			app.errorLog.Printf("User %d has no active subscription", user.ID)
+			Resp.Error = true
+			Resp.Message = "You must have an active subscription"
+			app.writeJSON(w, http.StatusForbidden, Resp)
+			return
+		}
+
+		// 6. Check subscription expiry
+		expiry := plan.PaymentTime.AddDate(0, 0, plan.PlanDetails.ExpiresAt)
+		if time.Now().After(expiry) {
+			app.errorLog.Printf("Subscription expired for user %d", user.ID)
+			Resp.Error = true
+			Resp.Message = "Your subscription has expired"
+			app.writeJSON(w, http.StatusForbidden, Resp)
+			return
+		}
+
+		// 7. Check download limit
+		if plan.PlanDetails.DownloadLimit <= plan.TotalDownloads {
+			app.errorLog.Printf("User %d reached download limit", user.ID)
+			Resp.Error = true
+			Resp.Message = "Download limit reached. Please upgrade your plan."
+			app.writeJSON(w, http.StatusForbidden, Resp)
+			return
+		}
+	}
+
+	// 8. Decrement user download limit if media is premium
+	if media.LicenseType == 1 {
+		err := app.DB.UserRepo.IncrementDownloadCounts(r.Context(), user.ID)
+		if err != nil {
+			app.errorLog.Printf("Failed to decrement download limit for user %d: %v", user.ID, err)
+		} else {
+			app.infoLog.Printf("Decremented download limit for user %d", user.ID)
+		}
+	}
+
+	// 9. Log download history
+	download := models.DownloadHistory{
+		MediaUUID:    media.MediaUUID,
+		UserID:       user.ID,
+		FileType:     media.FileType,
+		FileExt:      media.FileExt,
+		FileName:     media.MediaTitle,
+		FileSize:     media.FileSize,
+		Resolution:   media.Resolution,
+		DownloadedAt: time.Now(),
+	}
+	if err := app.DB.DownloadHistoryRepo.Create(r.Context(), &download); err != nil {
+		app.errorLog.Printf("Failed to log download for user %d: %v", user.ID, err)
 		Resp.Error = true
-		Resp.Message = "You must have an active subscription"
-		app.writeJSON(w, http.StatusForbidden, Resp)
+		Resp.Message = "Failed to log download history"
+		app.writeJSON(w, http.StatusInternalServerError, Resp)
 		return
 	}
 
-	// 7. Check if subscription expired
-	expiry := plan.PaymentTime.AddDate(0, 0, plan.PlanDetails.ExpiresAt)
-
-	if time.Now().After(expiry) {
-		app.errorLog.Printf("Subscription expired for user %d", user.ID)
+	// 10. Increment media category download count
+	if err := app.DB.MediaCategoryRepo.IncrementDownloads(r.Context(), int64(media.CategoryID)); err != nil {
+		app.errorLog.Printf("Failed to increment category downloads for user %d: %v", user.ID, err)
 		Resp.Error = true
-		Resp.Message = "Your subscription has expired"
-		app.writeJSON(w, http.StatusForbidden, Resp)
+		Resp.Message = "Failed to update category download count"
+		app.writeJSON(w, http.StatusInternalServerError, Resp)
 		return
 	}
 
-	// 8. Check download limit
-	if plan.PlanDetails.DownloadLimit <= 0 {
-		app.errorLog.Printf("User %d has reached download limit", user.ID)
+	// 11. Increment media download count
+	if err := app.DB.MediaRepo.IncrementDownloadCountByID(r.Context(), media.ID); err != nil {
+		app.errorLog.Printf("Failed to increment media downloads for user %d: %v", user.ID, err)
 		Resp.Error = true
-		Resp.Message = "Download limit reached. Please upgrade your plan."
-		app.writeJSON(w, http.StatusForbidden, Resp)
+		Resp.Message = "Failed to update media download count"
+		app.writeJSON(w, http.StatusInternalServerError, Resp)
 		return
 	}
 
-	// 9. Serve the file
+	// 12. Locate the media file path
 	imageType := "premium"
 	if media.LicenseType == 0 {
 		imageType = "free"
 	}
 	mediaPath := path.Join("assets", "images", imageType, media.MediaUUID)
+
 	if _, err := os.Stat(mediaPath); err != nil {
 		app.errorLog.Printf("File not found: %s", mediaPath)
 		Resp.Error = true
@@ -1051,33 +1088,11 @@ func (app *application) ServeMedia(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	app.infoLog.Printf("Serving premium media %s to user %d", media.MediaUUID, user.ID)
+	// 13. Serve the media file
+	w.Header().Set("Content-Type", "application/octet-stream")
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", media.FileName))
+
 	http.ServeFile(w, r, mediaPath)
-
-	// 10. Decrement download limit (persist in DB)
-	err = app.DB.UserRepo.DecrementDownloadLimit(r.Context(), user.ID)
-	if err != nil {
-		// Log error but do not fail the download
-		app.errorLog.Printf("Failed to decrement download limit for user %d: %v", user.ID, err)
-	} else {
-		app.infoLog.Printf("Decremented download limit for user %d", user.ID)
-	}
-
-	// 11. Optionally: Log the download event (in database or analytics system)
-	h := models.DownloadHistory{
-		MediaUUID:    media.MediaUUID,
-		UserID:       user.ID,
-		DownloadedAt: time.Now(),
-	}
-	err = app.DB.DownloadHistoryRepo.Create(r.Context(), &h)
-	if err != nil {
-		app.errorLog.Printf("Failed to log media download for user %d: %v", user.ID, err)
-	}
-	// 11. Optionally: Increment download counts in media categories table (in database or analytics system)
-	err = app.DB.MediaCategoryRepo.DecrementDownloads(r.Context(), int64(media.CategoryID))
-	if err != nil {
-		app.errorLog.Printf("Failed to log media download for user %d: %v", user.ID, err)
-	}
 }
 
 // --- Subscription Plan Management ---
@@ -1096,7 +1111,6 @@ func (app *application) CreatePlan(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	app.infoLog.Println(p)
 	err = app.DB.SubscriptionTypeRepo.Create(r.Context(), &p)
 	if err != nil {
 		app.badRequest(w, err)
@@ -1153,8 +1167,9 @@ func (app *application) GetPlans(w http.ResponseWriter, r *http.Request) {
 }
 func (app *application) PurchasePlan(w http.ResponseWriter, r *http.Request) {
 	var Resp struct {
-		Error   bool   `json:"error"`
-		Message string `json:"message"`
+		Error               bool                 `json:"error"`
+		Message             string               `json:"message"`
+		SubscriptionDetails *models.Subscription `json:"subscription"`
 	}
 
 	planID, err := strconv.Atoi(strings.TrimSpace(r.URL.Query().Get("plan_id")))
@@ -1176,9 +1191,16 @@ func (app *application) PurchasePlan(w http.ResponseWriter, r *http.Request) {
 	}
 
 	user, err := app.DB.UserRepo.GetByID(r.Context(), token.ID)
+	if err != nil {
+		app.errorLog.Println("Invalid user token: ", err)
+		Resp.Error = true
+		Resp.Message = "Invalid user token"
+		app.writeJSON(w, http.StatusForbidden, Resp)
+		return
+	}
 
-	if user.CurrentPlan != nil {
-		expiry := user.CurrentPlan.PaymentTime.AddDate(0, 0, user.CurrentPlan.PlanDetails.ExpiresAt)
+	if user.CurrentSubscription != nil {
+		expiry := user.CurrentSubscription.PaymentTime.AddDate(0, 0, user.CurrentSubscription.PlanDetails.ExpiresAt)
 
 		if !time.Now().After(expiry) {
 			app.errorLog.Printf("Purchased Subscription plan exist for user %d", user.ID)
@@ -1188,7 +1210,7 @@ func (app *application) PurchasePlan(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if user.CurrentPlan.PlanDetails.DownloadLimit <= 0 {
+		if user.CurrentSubscription.PlanDetails.DownloadLimit <= 0 {
 			app.errorLog.Printf("Purchased Subscription plan exist for user %d", user.ID)
 			Resp.Error = true
 			Resp.Message = "You already have an active subscription plan. Please try again after your current plan expires."
@@ -1196,11 +1218,20 @@ func (app *application) PurchasePlan(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-
+	//get subscription type info
+	spt, err := app.DB.SubscriptionTypeRepo.GetByID(r.Context(), planID)
+	if err != nil {
+		app.errorLog.Println(err)
+		Resp.Error = true
+		Resp.Message = "Invalid plan id"
+		app.writeJSON(w, http.StatusForbidden, Resp)
+		return
+	}
+	//complete payment process(via stripe, MFS or Banking system)
 	sub := &models.Subscription{
 		UserID:             user.ID,
-		SubscriptionPlanID: planID,
-		PaymentAmount:      10000,
+		SubscriptionPlanID: spt.ID,
+		PaymentAmount:      float64(spt.Price),
 		PaymentTime:        time.Now(),
 		TotalDownloads:     0,
 		Status:             true,
@@ -1225,6 +1256,8 @@ func (app *application) PurchasePlan(w http.ResponseWriter, r *http.Request) {
 
 	Resp.Error = true
 	Resp.Message = "Purchase completed"
+	sub.PlanDetails = spt
+	Resp.SubscriptionDetails = sub
 	app.writeJSON(w, http.StatusOK, Resp)
 
 }

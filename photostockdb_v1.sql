@@ -78,7 +78,13 @@ CREATE TABLE medias (
     license_type INTEGER NOT NULL DEFAULT 0,
     uploader_id INTEGER,
     uploader_name VARCHAR(255) NOT NULL DEFAULT '',
+    total_downloads INTEGER DEFAULT 0,
     total_earnings NUMERIC(20,2) DEFAULT 0,
+    file_type VARCHAR(50) NOT NULL DEFAULT '',
+    file_ext VARCHAR(50) NOT NULL DEFAULT '',
+    file_name VARCHAR(255) NOT NULL DEFAULT '',
+    file_size VARCHAR(50) NOT NULL DEFAULT '',
+    resolution VARCHAR(50) DEFAULT '',  -- e.g. "1920x1080px"
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_media_category FOREIGN KEY (category_id)

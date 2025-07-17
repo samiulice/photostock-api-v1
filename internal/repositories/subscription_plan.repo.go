@@ -75,3 +75,19 @@ func (r *SubscriptionTypeRepo) GetAll(ctx context.Context) ([]*models.Subscripti
 	}
 	return plans, nil
 }
+
+func (r *SubscriptionTypeRepo) GetByID(ctx context.Context, id int) (*models.SubscriptionPlan, error) {
+	query := `
+		SELECT id, title, terms, status, price, download_limit, expires_at, created_at, updated_at
+		FROM subscription_plans
+		WHERE id = $1`
+	var sp models.SubscriptionPlan
+	err := r.db.QueryRow(ctx, query, id).Scan(
+		&sp.ID, &sp.Title, &sp.Terms, &sp.Status, &sp.Price, &sp.DownloadLimit, &sp.ExpiresAt, &sp.CreatedAt, &sp.UpdatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+	sp.TermsList = strings.Split(sp.Terms, "[[]]")
+	return &sp, nil
+}

@@ -52,36 +52,35 @@ type SubscriptionPlan struct {
 	UpdatedAt     time.Time `json:"updated_at"`
 }
 
-
 type MediaCategory struct {
-	ID           int       `json:"id"`
-	Name         string    `json:"name"`
-	ThumbnailURL string    `json:"thumbnail_url"`
-	UploadCount int    `json:"upload_count"`
-	DownloadCount int    `json:"download_count"`
-	CreatedAt    time.Time `json:"created_at"`
-	UpdatedAt    time.Time `json:"updated_at"`
+	ID            int       `json:"id"`
+	Name          string    `json:"name"`
+	ThumbnailURL  string    `json:"thumbnail_url"`
+	UploadCount   int       `json:"upload_count"`
+	DownloadCount int       `json:"download_count"`
+	CreatedAt     time.Time `json:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at"`
 }
 
 type User struct {
-	ID             int           `json:"id"`
-	Username       string        `json:"username"`
-	Password       string        `json:"password,omitempty"`
-	Name           string        `json:"name"`
-	AvatarURL      string        `json:"avatar_url"`
-	AvatarID       string        `json:"avatar_id"`
-	Status         bool          `json:"status"`
-	Role           string        `json:"role"`
-	Email          string        `json:"email"`
-	Mobile         string        `json:"mobile"`
-	TotalEarnings  float64       `json:"total_earnings"`
-	TotalWithdraw  float64       `json:"total_withdraw"`
-	TotalExpenses  float64       `json:"total_expenses"`
-	Address        string        `json:"address"`
-	SubscriptionID *int          `json:"subscription_id"` // nullable FK
-	CreatedAt      time.Time     `json:"created_at"`
-	UpdatedAt      time.Time     `json:"updated_at"`
-	CurrentPlan    *Subscription `json:"current_plan"`
+	ID                  int           `json:"id"`
+	Username            string        `json:"username"`
+	Password            string        `json:"password,omitempty"`
+	Name                string        `json:"name"`
+	AvatarURL           string        `json:"avatar_url"`
+	AvatarID            string        `json:"avatar_id"`
+	Status              bool          `json:"status"`
+	Role                string        `json:"role"`
+	Email               string        `json:"email"`
+	Mobile              string        `json:"mobile"`
+	TotalEarnings       float64       `json:"total_earnings"`
+	TotalWithdraw       float64       `json:"total_withdraw"`
+	TotalExpenses       float64       `json:"total_expenses"`
+	Address             string        `json:"address"`
+	SubscriptionID      *int          `json:"subscription_id"` // nullable FK
+	CreatedAt           time.Time     `json:"created_at"`
+	UpdatedAt           time.Time     `json:"updated_at"`
+	CurrentSubscription *Subscription `json:"current_subscription"`
 }
 
 type Subscription struct {
@@ -98,44 +97,50 @@ type Subscription struct {
 }
 
 type Media struct {
-	ID            int           `json:"id"`
-	MediaUUID     string        `json:"media_uuid"`
-	MediaURL      string        `json:"media_url"`
-	MediaTitle    string        `json:"media_title"`
-	Description   string        `json:"description"`
-	CategoryID    int           `json:"category_id"` // foreign key of media_categories
-	TotalEarnings float64       `json:"total_earnings"`
-	LicenseType   int           `json:"license_type"` //premium = 0, free = 1
-	MediaCategory MediaCategory `json:"media_category"`
-	UploaderID    int           `json:"uploader_id"` //foreign key of users table
-	UploaderName  string        `json:"uploader_name"`
-	CreatedAt     time.Time     `json:"created_at"`
-	UpdatedAt     time.Time     `json:"updated_at"`
+	ID             int           `json:"id"`
+	MediaUUID      string        `json:"media_uuid"`
+	MediaURL       string        `json:"media_url"`
+	MediaTitle     string        `json:"media_title"`
+	Description    string        `json:"description"`
+	CategoryID     int           `json:"category_id"` // foreign key of media_categories
+	TotalEarnings  float64       `json:"total_earnings"`
+	TotalDownloads int           `json:"total_downloads"`
+	LicenseType    int           `json:"license_type"` //premium = 0, free = 1
+	MediaCategory  MediaCategory `json:"media_category"`
+	UploaderID     int           `json:"uploader_id"` //foreign key of users table
+	UploaderName   string        `json:"uploader_name"`
+	FileType   string    `json:"file_type"`
+	FileExt    string    `json:"file_ext"`
+	FileName   string    `json:"file_name"`
+	FileSize   string    `json:"file_size"`
+	Resolution string    `json:"resolution"`
+	CreatedAt      time.Time     `json:"created_at"`
+	UpdatedAt      time.Time     `json:"updated_at"`
 }
 
 type UploadHistory struct {
 	ID         int       `json:"id"`
 	MediaUUID  string    `json:"media_id"`
 	UserID     int       `json:"user_id"` //uploader
-	FileType string `json:"file_type"`
-	FileExt string `json:"file_ext"`
-	FileName string `json:"file_name"`
-	FileSize string `json:"file_size"`
-	Resolution string `json:"resolution"`
+	FileType   string    `json:"file_type"`
+	FileExt    string    `json:"file_ext"`
+	FileName   string    `json:"file_name"`
+	FileSize   string    `json:"file_size"`
+	Resolution string    `json:"resolution"`
 	UploadedAt time.Time `json:"uploaded_at"`
 	CreatedAt  time.Time `json:"created_at"`
 	UpdatedAt  time.Time `json:"updated_at"`
 }
 type DownloadHistory struct {
-	ID         int       `json:"id"`
-	MediaUUID  string    `json:"media_id"`
-	UserID     int       `json:"user_id"` //uploader
-	FileType string `json:"file_type"`
-	FileExt string `json:"file_ext"`
-	FileName string `json:"file_name"`
-	FileSize string `json:"file_size"`
-	Resolution string `json:"resolution"`
+	ID           int       `json:"id"`
+	MediaUUID    string    `json:"media_id"`
+	UserID       int       `json:"user_id"` //uploader
+	FileType     string    `json:"file_type"`
+	FileExt      string    `json:"file_ext"`
+	FileName     string    `json:"file_name"`
+	FileSize     string    `json:"file_size"`
+	Resolution   string    `json:"resolution"`
 	DownloadedAt time.Time `json:"downloaded_at"`
-	CreatedAt  time.Time `json:"created_at"`
-	UpdatedAt  time.Time `json:"updated_at"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
 }

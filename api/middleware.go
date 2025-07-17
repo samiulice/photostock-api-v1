@@ -208,18 +208,18 @@ func IsSubscriptionValid(ctx context.Context) (bool, string) {
 	}
 
 	// Check if the user has a linked subscription plan
-	if user.CurrentPlan == nil {
+	if user.CurrentSubscription == nil {
 		return false, "No active subscription plan"
 	}
-	plan := user.CurrentPlan
+	currentSubscription := user.CurrentSubscription
 
 	// Ensure the user still has remaining downloads
-	if plan.TotalDownloads >= plan.PlanDetails.DownloadLimit {
+	if currentSubscription.TotalDownloads >= currentSubscription.PlanDetails.DownloadLimit {
 		return false, "Download limit exceeded"
 	}
 
 	// Check if the current time is past the subscription expiration
-	expiry := plan.PaymentTime.AddDate(0, 0, plan.PlanDetails.ExpiresAt)
+	expiry := currentSubscription.PaymentTime.AddDate(0, 0, currentSubscription.PlanDetails.ExpiresAt)
 
 	if time.Now().After(expiry) {
 		return false, "Your subscription has expired"

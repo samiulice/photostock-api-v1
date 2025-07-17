@@ -172,14 +172,14 @@ func (r *UserRepo) GetByID(ctx context.Context, id int) (*models.User, error) {
 				Terms:         planTerms.String,
 				Status:        planStatus.Bool,
 				DownloadLimit: int(planDL.Int64),
-				ExpiresAt:     plan.ExpiresAt,
+				ExpiresAt:     int(planExpiresAt.Int64),
 				CreatedAt:     planCreatedAt.Time,
 				UpdatedAt:     planUpdatedAt.Time,
 			}
 			sub.PlanDetails = &plan
 		}
 
-		user.CurrentPlan = &sub
+		user.CurrentSubscription = &sub
 	}
 
 	baseURL, _ := url.Parse(models.APIEndPoint)
@@ -321,14 +321,14 @@ func (r *UserRepo) GetByUsername(ctx context.Context, username string) (*models.
 				Terms:         planTerms.String,
 				Status:        planStatus.Bool,
 				DownloadLimit: int(planDL.Int64),
-				ExpiresAt:     plan.ExpiresAt,
+				ExpiresAt:     int(planExpiresAt.Int64),
 				CreatedAt:     planCreatedAt.Time,
 				UpdatedAt:     planUpdatedAt.Time,
 			}
 			sub.PlanDetails = &plan
 		}
 
-		user.CurrentPlan = &sub
+		user.CurrentSubscription = &sub
 
 	}
 
@@ -473,14 +473,14 @@ func (r *UserRepo) GetByEmail(ctx context.Context, email string) (*models.User, 
 				Terms:         planTerms.String,
 				Status:        planStatus.Bool,
 				DownloadLimit: int(planDL.Int64),
-				ExpiresAt:     plan.ExpiresAt,
+				ExpiresAt:     int(planExpiresAt.Int64),
 				CreatedAt:     planCreatedAt.Time,
 				UpdatedAt:     planUpdatedAt.Time,
 			}
 			sub.PlanDetails = &plan
 		}
 
-		user.CurrentPlan = &sub
+		user.CurrentSubscription = &sub
 	}
 
 	baseURL, _ := url.Parse(models.APIEndPoint)
@@ -598,6 +598,17 @@ func (r *UserRepo) DecrementDownloadLimit(ctx context.Context, userID int) error
 		UPDATE subscriptions 
 		SET total_downloads = total_downloads - 1 
 		WHERE user_id = $1 AND total_downloads > 0
+	`
+	_, err := r.db.Exec(ctx, query, userID)
+	return err
+}
+
+func (r *UserRepo) IncrementDownloadCounts(ctx context.Context, userID int) error {
+	// Increment download count in subscription
+	query := `
+		UPDATE subscriptions 
+		SET total_downloads = total_downloads + 1 
+		WHERE user_id = $1
 	`
 	_, err := r.db.Exec(ctx, query, userID)
 	return err

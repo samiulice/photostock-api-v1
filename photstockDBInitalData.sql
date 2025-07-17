@@ -2,14 +2,18 @@
 
 SELECT * from users;
 SELECT * from medias;
+SELECT * FROM subscriptions;
 SELECT * FROM subscription_plans;
 
 select * from upload_history;
 
 SELECT * FROM download_history;
-alter table media_categories
-add COLUMN total_uploads INTEGER DEFAULT 0,
-add COLUMN total_downloads INTEGER DEFAULT 0;
+alter table medias
+add COLUMN file_type VARCHAR(50) NOT NULL DEFAULT '',
+add COLUMN file_ext VARCHAR(50) NOT NULL DEFAULT '',
+add COLUMN file_name VARCHAR(255) NOT NULL DEFAULT '',
+add COLUMN file_size VARCHAR(50) NOT NULL DEFAULT '',
+add COLUMN resolution VARCHAR(50) DEFAULT '';  -- e.g. "1920x1080px"
 -- Select all rows from 'media_categories'
 SELECT * FROM media_categories;
 INSERT INTO download_history (
