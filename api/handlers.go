@@ -526,8 +526,9 @@ func (app *application) GetMediaCategories(w http.ResponseWriter, r *http.Reques
 // CreateMediaCategory creates a new category to the database
 func (app *application) CreateMediaCategory(w http.ResponseWriter, r *http.Request) {
 	var Resp struct {
-		Error   bool   `json:"error"`
-		Message string `json:"message"`
+		Error         bool                  `json:"error"`
+		Message       string                `json:"message"`
+		MediaCategory *models.MediaCategory `json:"media_category"`
 	}
 	err := r.ParseMultipartForm(20 << 20) // 20MB max
 	if err != nil {
@@ -616,6 +617,10 @@ func (app *application) CreateMediaCategory(w http.ResponseWriter, r *http.Reque
 
 	Resp.Error = false
 	Resp.Message = "Media category added successfully"
+	baseURL, _ := url.Parse(models.APIEndPoint)
+	baseURL.Path = path.Join(baseURL.Path, "public", "categories", category.ThumbnailURL)
+	category.ThumbnailURL = baseURL.String()
+	Resp.MediaCategory = &category
 	app.writeJSON(w, http.StatusOK, Resp)
 }
 

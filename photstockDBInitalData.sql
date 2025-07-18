@@ -2,6 +2,7 @@
 
 SELECT * from users;
 SELECT * from medias;
+SELECT * from media_categories;
 SELECT * FROM subscriptions;
 SELECT * FROM subscription_plans;
 
