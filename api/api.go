@@ -102,7 +102,7 @@ func RunServer(ctx context.Context) error {
 	cfg.jwt.algorithm = "HS256" // JWT signing algorithm
 
 	//for testing purpose
-	cfg.db.dsn = "postgresql://photostock_db_kms3_user:0YqzS7ziqQjLx2nyfU9WGPdYRo7qNkd9@dpg-d1drniumcj7s73be3hqg-a.oregon-postgres.render.com/photostock_db_v1"
+	cfg.db.dsn = "postgresql://photostock_db_kms3_user:hcc6i1nv7jo8UNZpn6CISMR1YLpKGZmZ@dpg-d20pq8re5dus7383e9gg-a.oregon-postgres.render.com/photostock_db_v1_ubk7"
 	// Connection to database
 	dbConn, err := db.NewPgxPool(cfg.db.dsn)
 	if err != nil {
