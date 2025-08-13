@@ -20,7 +20,7 @@ const version = models.APPVersion //app version
 // config holds app configuration
 type config struct {
 	port int
-	env  string //mediaion or development mode
+	env  string //development||Production"||Staging mode
 	jwt  struct {
 		secretKey string        //JWT secret key for signing tokens
 		issuer    string        //Issuer of the JWT token
@@ -85,40 +85,52 @@ func (app *application) ShutdownServer() error {
 func RunServer(ctx context.Context) error {
 	var cfg config
 
-	// Getting command line arguments
+	// Command line flags
 	flag.IntVar(&cfg.port, "port", 8080, "API Server port to listen on")
-	flag.StringVar(&cfg.env, "env", "development", "Application Environment{development|mediaion}")
+	flag.StringVar(&cfg.env, "env", "development", "Application environment {development|production|staging}")
+	flag.StringVar(&cfg.db.dsn, "dsn", "", "PostgreSQL DSN (e.g., postgresql://user:pass@host/db)")
 	flag.Parse()
 
+	// Basic logging setup
 	infoLog := log.New(os.Stdout, "INFO\t", log.Ldate|log.Ltime)
 	errorLog := log.New(os.Stdout, "ERROR\t", log.Ldate|log.Ltime|log.Lshortfile)
 
-	//setup JWT configuration
-	cfg.jwt.secretKey = "photostock_app_v2_2024_Secure_JWT_Key_!@#$%^&*()_+" // Replace with your actual secret key
-	cfg.jwt.issuer = "photostock_app_v2"
-	cfg.jwt.expiry = 8760 * time.Hour      // Token expiry duration
-	cfg.jwt.refresh = 7 * 24 * time.Hour // Refresh token expiry duration
-	cfg.jwt.audience = "photostock_app_v2"
-	cfg.jwt.algorithm = "HS256" // JWT signing algorithm
+	// Use DSN from environment variable if not provided via flag
+	if cfg.db.dsn == "" {
+		cfg.db.dsn = os.Getenv("DATABASE_DSN")
+	}
+	if cfg.db.dsn == "" {
+		errorLog.Println("PostgreSQL DSN not provided via flag or environment variable")
+		return fmt.Errorf("missing database DSN")
+	}
 
-	//for testing purpose
-	cfg.db.dsn = "postgresql://photostock_db_kms3_user:0YqzS7ziqQjLx2nyfU9WGPdYRo7qNkd9@dpg-d1drniumcj7s73be3hqg-a.oregon-postgres.render.com/photostock_db_v1"
-	// Connection to database
+	// JWT configuration
+	cfg.jwt.secretKey = os.Getenv("JWT_SECRET_KEY")
+	if cfg.jwt.secretKey == "" {
+		cfg.jwt.secretKey = "photostock_app_v2_2024_Secure_JWT_Key_!@#$%^&*()_+" // fallback default
+	}
+	cfg.jwt.issuer = "photostock_app_v2"
+	cfg.jwt.expiry = 8760 * time.Hour
+	cfg.jwt.refresh = 7 * 24 * time.Hour
+	cfg.jwt.audience = "photostock_app_v2"
+	cfg.jwt.algorithm = "HS256"
+
+	// Connect to the database
 	dbConn, err := db.NewPgxPool(cfg.db.dsn)
 	if err != nil {
-		app.errorLog.Println(err)
+		errorLog.Println("Database connection failed:", err)
 		return err
 	}
 	defer dbConn.Close()
-	db := repositories.NewDBRepository(dbConn)
+	dbRepo := repositories.NewDBRepository(dbConn)
 	infoLog.Println("Connected to database")
 
-	app = &application{
+	app := &application{
 		config:   cfg,
 		infoLog:  infoLog,
 		errorLog: errorLog,
 		version:  version,
-		DB:       db,
+		DB:       dbRepo,
 		ctx:      ctx,
 	}
 
@@ -139,6 +151,7 @@ func RunServer(ctx context.Context) error {
 	// Call ShutdownServer to gracefully shut down the server
 	return app.ShutdownServer()
 }
+
 
 // Stop server from outer module
 func StopServer() error {
