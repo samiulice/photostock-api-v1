@@ -51,7 +51,7 @@ var app *application
 func (app *application) serve() error {
 	srv := &http.Server{
 		Addr:              fmt.Sprintf(":%d", app.config.port),
-		Handler:           app.routes(),
+		Handler:           app.corsMiddleware(app.routes()),
 		IdleTimeout:       30 * time.Second,
 		ReadTimeout:       10 * time.Second,
 		ReadHeaderTimeout: 5 * time.Minute,

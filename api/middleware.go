@@ -13,6 +13,18 @@ import (
 
 // userContextKey is the key used to store user claims in the request context
 type contextKey string
+func (app *application)corsMiddleware(next http.Handler) http.Handler {
+    return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        w.Header().Set("Access-Control-Allow-Origin", "*") // allow all origins
+        w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+        w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+        if r.Method == "OPTIONS" {
+            w.WriteHeader(http.StatusOK)
+            return
+        }
+        next.ServeHTTP(w, r)
+    })
+}
 
 // AuthUser is a middleware that checks if the user is authenticated
 // It expects the Authorization header to be present in the request
