@@ -1,7 +1,7 @@
 -- CLEANUP SECTION
 DROP SCHEMA public CASCADE;
 CREATE SCHEMA public;
-GRANT ALL ON SCHEMA public TO photostock_db_kms3_user;
+GRANT ALL ON SCHEMA public TO photostock_db_user;
 GRANT ALL ON SCHEMA public TO public;
 
 -- Create independent tables first (no foreign keys)
