@@ -115,7 +115,7 @@ func RunServer(ctx context.Context) error {
 	cfg.jwt.audience = "photostock_app_v2"
 	cfg.jwt.algorithm = "HS256"
 
-	// Connect to the database
+	// Connection to database
 	dbConn, err := db.NewPgxPool(cfg.db.dsn)
 	if err != nil {
 		errorLog.Println("Database connection failed:", err)
